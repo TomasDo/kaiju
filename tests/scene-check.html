@@ -1,0 +1,24 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><title>游戏场景核验</title><style>body{margin:0;background:#0c1925}iframe{border:0;width:100vw;height:100vh;display:block}#status{position:fixed;top:4px;left:50%;transform:translateX(-50%);padding:5px 10px;background:#132032;color:#fff;font:11px sans-serif;z-index:9}</style></head><body><div id="status">载入固定场景…</div><iframe title="游戏原生场景" src="../kaiju-destroyer.html"></iframe><script>
+const frame=document.querySelector('iframe');
+frame.onload=()=>{try{
+  const result=frame.contentWindow.eval(`(() => {
+    let seed=439918;const random=Math.random;
+    Math.random=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
+    document.getElementById('start-screen').classList.add('hidden');
+    const fixture=new Game();game=fixture;audio.muted=true;
+    player.x=36;player.y=36;player.aimAngle=-2.3;player.hp=90;player.score=1250;
+    for(const [type,x,y] of [['soldier',34,39],['soldier',38,39],['soldier',32,36],['tank',41,39],['helicopter',31,32],['fartHero',41,33]]){
+      spawnEnemy(type,x,y);const e=enemies[enemies.length-1];e.onRoof=false;e.facing=Math.atan2(player.y-y,player.x-x);e.patrolAngle=e.facing;
+      if(type==='soldier'){e.workerState='cheer';e.walkSpeed=0.009;}
+    }
+    for(let i=0;i<2;i++){const roof=getRoofPos();if(roof){spawnEnemy('boss',roof.x,roof.y);const e=enemies[enemies.length-1];e.facing=Math.atan2(player.y-e.y,player.x-e.x);}}
+    fixture.time=100;player.cheerCount=countCheeringWorkers();
+    syncEntityMeshes();aimLine.visible=false;updateShadowCulling();
+    camera.position.set(player.x+CAM_OFFSET.x,CAM_OFFSET.y,player.y+CAM_OFFSET.z);camera.lookAt(player.x,GODZILLA_H*0.45,player.y);
+    renderer.render(scene,camera);drawHUD();
+    const stats={entities:enemies.length,calls:renderer.info.render.calls,triangles:renderer.info.render.triangles};
+    Math.random=random;game=null;return stats;
+  })()`);
+  document.getElementById('status').textContent='固定场景 · '+result.entities+' 个单位 · '+result.calls+' 次绘制 · '+result.triangles+' 三角面';
+}catch(e){document.getElementById('status').textContent=e.stack;}};
+</script></body></html>

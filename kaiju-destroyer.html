@@ -1,0 +1,1926 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>巨兽毁灭者 3D - Kaiju Destroyer</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#000;overflow:hidden;font-family:'Courier New',monospace}
+#wrap{position:relative;width:100vw;height:100vh}
+#game{display:block;width:100%;height:100%;cursor:crosshair;touch-action:none}
+#hud{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none}
+#start-screen,#gameover-screen{position:fixed;inset:0;display:flex;flex-direction:column;justify-content:center;align-items:center;background:rgba(7,15,22,0.95);z-index:100;color:#fff;padding:24px;overflow:auto;text-align:center}
+#start-screen h1{font-size:clamp(30px,6vw,56px);color:#ff5d4c;text-shadow:0 0 30px #ff00004d;margin-bottom:8px;letter-spacing:4px}
+#start-screen h2{font-size:clamp(12px,2.4vw,18px);color:#ffbd5c;margin-bottom:28px;letter-spacing:2px}
+#gameover-screen h1{font-size:48px;color:#ff4444;text-shadow:0 0 30px #ff0000;margin-bottom:16px}
+.final-score{font-size:24px;color:#ffaa00;margin-bottom:25px}
+.btn{padding:14px 44px;font-size:20px;background:#c0392b;color:#fff;border:none;cursor:pointer;font-family:inherit;letter-spacing:4px;transition:all .2s}
+.btn:hover{background:#e74c3c;transform:scale(1.05)}
+.info{margin-top:24px;color:#bdc6cd;font-size:13px;text-align:center;line-height:2.1;max-width:650px}
+.info b{color:#ffaa00}
+button:focus-visible,a:focus-visible{outline:3px solid #ffd47a;outline-offset:5px}
+.friendly{color:#91e8bd!important}
+#touch-controls{display:none;position:fixed;right:14px;bottom:140px;z-index:20;gap:7px}
+#touch-controls button{min-width:50px;min-height:44px;padding:8px;border:1px solid #8ea4b5;background:#142c3ce8;color:white;border-radius:8px;font:13px system-ui}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+@media(pointer:coarse),(max-width:600px){#touch-controls{display:flex}.info{font-size:12px}.final-score{font-size:18px}#gameover-screen h1{font-size:36px}}
+.hidden{display:none!important}
+</style>
+<!-- three.js r160 已本地化到 vendor/，双击本文件即可离线游玩。
+     注意 r160 是最后一个还带 UMD 版 three.min.js 的版本；再往上升必须改成
+     ES Module，而 file:// 下 ES Module 受 CORS 限制，会失去双击直开的能力。 -->
+<script src="vendor/three.min.js"></script>
+<script src="boss-model.js"></script>
+<script src="city-visual.js"></script>
+<script src="unit-visual.js"></script>
+<script src="kaiju-visual.js"></script>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="game" aria-label="巨兽毁灭者游戏场景，WASD移动，鼠标瞄准，空格踩踏，P暂停"></canvas>
+  <canvas id="hud" aria-hidden="true"></canvas>
+</div>
+<div id="touch-controls" class="hidden" aria-label="游戏操作">
+  <button id="pause-button" onclick="togglePause()">暂停</button>
+  <button id="mute-button" onclick="toggleMute()">静音</button>
+  <button onclick="triggerStomp()">踩踏</button>
+</div>
+<div id="game-status" class="sr-only" role="status" aria-live="polite"></div>
+
+<div id="start-screen">
+  <h1>巨兽毁灭者</h1>
+  <h2>KAIJU DESTROYER — 第三人称 3D</h2>
+  <button class="btn" onclick="startGame()">开始破坏</button>
+  <a href="boss-preview.html" style="margin-top:18px;color:#c8b28b;font-size:13px;text-underline-offset:5px">查看新版 Boss · 3D 角色展示</a>
+  <div class="info">
+    <b>W A S D</b> 移动 &nbsp;|&nbsp; <b>Shift</b> 冲刺 &nbsp;|&nbsp; <b>空格</b> 踩踏冲击波<br>
+    <b>鼠标</b> 控制攻击方向 &nbsp;|&nbsp; 火焰自动喷射<br>
+    摧毁大楼回血 &nbsp;|&nbsp; <b>放屁侠</b>：绕到背后瞄准菊花！<br>
+    <b class="friendly">打工人是队友</b>：不会攻击你，靠近可延长连击，保护他们免受流弹伤害<br>
+    楼顶<b>西装老板</b>：喷火攻击，或烧塌脚下的楼后再踩踏<br>
+    触屏：左侧拖动移动，右侧拖动瞄准、轻点踩踏
+  </div>
+</div>
+
+<div id="gameover-screen" class="hidden">
+  <h1>巨兽陨落</h1>
+  <div class="final-score" id="final-score"></div>
+  <button class="btn" onclick="startGame()">再来一次</button>
+</div>
+
+<script>
+// ===== CANVAS / THREE =====
+const C = document.getElementById('game');
+const H = document.getElementById('hud');
+const X = H.getContext('2d');
+let renderer, scene, camera, sunLight;
+let buildingGroup, entityGroup, fxGroup;
+let cityGround;
+let playerMesh, aimLine, stompRing;
+const buildingMeshes = new Map();
+const enemyMeshMap = new WeakMap();
+const projMeshMap = new WeakMap();
+const pickupMeshMap = new WeakMap();
+const mouseNDC = new THREE.Vector2();
+const raycaster = new THREE.Raycaster();
+const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+const aimPoint = new THREE.Vector3();
+
+// ===== 平衡数值集中管理 =====
+// 想调平衡只改这里，不用再翻代码。渲染常量（BUILD_UNIT、GODZILLA_H、MAP 等）
+// 被大量几何/渲染代码引用，保持原位不动。
+// 必须放在两个 PLAYER_* 常量和 player 对象之前，否则 const 暂时性死区会报错。
+const BALANCE = {
+  // 玩家
+  playerSpeed: 0.085,
+  sprintMult: 1.8,
+  fartSlowMult: 0.6,        // 熏晕移速 -40%
+  insultFireMult: 0.6,      // 心态崩了火力 -40%
+  hitRadius: 1.1,
+  pickupRadius: 1.6,
+  maxHp: 100,
+  // 火焰
+  fireDamage: 2,
+  fireRange: 24,
+  fireStep: 0.15,
+  critMult: 5,
+  critAngleCos: -0.2,
+  // 踩踏
+  stompRadius: 4,
+  stompDamage: 8,
+  stompBuildDamage: 5,
+  // 敌人
+  enemyDespawnDist: 25,     // 脱离这个距离就淡出离场
+  enemyShootDist: 18,
+  fartTurnRate: 0.022,      // 放屁侠转身速率上限
+  waveGrowth: 0.12,         // wave 10 后每波属性成长
+  // 连击
+  comboBaseWindow: 180,
+  comboCheerBonus: 30,      // 每个打工人 +0.5s 连击窗口
+  // 掉落
+  bossPickups: 5, bossHeal: 20,
+  fartHeal: 15, tankHeal: 10,
+  pickupLife: 600, tankPickupLife: 400
+};
+
+const BUILD_UNIT = 2.2;
+const GODZILLA_H = 7;
+// 以躯干范围作为玩家受击体积，尾巴尖不参与判定。
+const PLAYER_HIT_RADIUS = BALANCE.hitRadius;
+const PLAYER_PICKUP_RADIUS = BALANCE.pickupRadius;
+const CAM_OFFSET = { x: 18, y: 29, z: 20 };
+
+function resize(){
+  const w = window.innerWidth, h = window.innerHeight;
+  H.width = w; H.height = h;
+  if(renderer){
+    renderer.setSize(w, h);
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+  }
+}
+resize();
+window.addEventListener('resize', resize);
+
+function rgbToHex(r, g, b){
+  return (r << 16) | (g << 8) | b;
+}
+
+function initThree(){
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0xc7dce7);
+  scene.fog = new THREE.Fog(0xc7dce7, 55, 115);
+
+  camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 0.5, 180);
+  renderer = new THREE.WebGLRenderer({ canvas: C, antialias: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.05;
+
+  scene.add(new THREE.HemisphereLight(0xe0efff, 0x9f927f, 2.2));
+  sunLight = new THREE.DirectionalLight(0xffeed8, 2.8);
+  sunLight.position.set(MAP * 0.6, 40, MAP * 0.3);
+  sunLight.castShadow = true;
+  sunLight.shadow.mapSize.set(2048, 2048);
+  sunLight.shadow.normalBias = 0.025;
+  sunLight.shadow.camera.left = -40;
+  sunLight.shadow.camera.right = 40;
+  sunLight.shadow.camera.top = 40;
+  sunLight.shadow.camera.bottom = -40;
+  sunLight.target.position.set(MAP / 2, 0, MAP / 2);
+  scene.add(sunLight);
+  scene.add(sunLight.target);
+
+  const ground = new THREE.Mesh(
+    new THREE.PlaneGeometry(MAP * 1.4, MAP * 1.4),
+    new THREE.MeshLambertMaterial({ color: 0xd4d4d4 })
+  );
+  ground.rotation.x = -Math.PI / 2;
+  ground.position.set(MAP / 2, 0, MAP / 2);
+  ground.receiveShadow = true;
+  scene.add(ground);
+
+  buildingGroup = new THREE.Group();
+  entityGroup = new THREE.Group();
+  fxGroup = new THREE.Group();
+  scene.add(buildingGroup, entityGroup, fxGroup);
+
+  fireGeometry = new THREE.SphereGeometry(1, 6, 6);
+
+  playerMesh = createGodzillaMesh();
+  entityGroup.add(playerMesh);
+
+  aimLine = new THREE.Mesh(
+    new THREE.BoxGeometry(0.12, 0.025, BALANCE.fireRange),
+    new THREE.MeshBasicMaterial({ color: 0xff6600, transparent: true, opacity: 0.45 })
+  );
+  aimLine.position.y = 0.2;
+  entityGroup.add(aimLine);
+
+  stompRing = new THREE.Mesh(
+    new THREE.RingGeometry(0.87, 1, 64),
+    new THREE.MeshBasicMaterial({ color: 0xffcc00, transparent: true, opacity: 0.7, side: THREE.DoubleSide })
+  );
+  stompRing.rotation.x = -Math.PI / 2;
+  stompRing.visible = false;
+  fxGroup.add(stompRing);
+}
+
+function addPart(parent, geometry, material, pos, scale, rot){
+  const mesh = new THREE.Mesh(geometry, material);
+  if(pos) mesh.position.set(pos[0], pos[1], pos[2]);
+  if(scale) mesh.scale.set(scale[0], scale[1], scale[2]);
+  if(rot) mesh.rotation.set(rot[0], rot[1], rot[2]);
+  parent.add(mesh);
+  return mesh;
+}
+
+function createGodzillaMesh(){
+  return KaijuVisual.create();
+}
+
+function disposeGroupChildren(group){
+  while(group.children.length){
+    const m = group.children[0];
+    group.remove(m);
+    if(m.geometry) m.geometry.dispose();
+    if(m.material) m.material.dispose();
+  }
+}
+
+function buildCityMeshes(){
+  [...buildingGroup.children].forEach(CityVisual.disposeCell);
+  buildingMeshes.clear();
+  if(cityGround) CityVisual.disposeGround(cityGround);
+  cityGround = CityVisual.createGround({map, mapSize:MAP});
+  scene.add(cityGround);
+  for(let my = 0; my < MAP; my++){
+    for(let mx = 0; mx < MAP; mx++){
+      const ci = my * MAP + mx;
+      if(map[ci] !== 1) continue;
+      addBuildingMesh(ci, mx, my);
+    }
+  }
+}
+
+function addBuildingMesh(ci, mx, my){
+  const mesh = CityVisual.createCell({ci, x:mx, y:my, floors:buildHeight[ci] || 3,
+    colorId:buildColorId[ci] || 0, map, mapSize:MAP, buildUnit:BUILD_UNIT});
+  buildingGroup.add(mesh);
+  buildingMeshes.set(ci, mesh);
+}
+
+function removeBuildingMesh(ci){
+  const mesh = buildingMeshes.get(ci);
+  if(mesh){
+    CityVisual.disposeCell(mesh);
+    buildingMeshes.delete(ci);
+  }
+}
+
+function createEnemyMesh(e){
+  const g = new THREE.Group();
+  if(e.type === 'boss'){
+    g.add(BossVisual.create({fill:0.04}));
+    g.userData.bossVisual = g.children[0];
+  }else{
+    const model = UnitVisual.create(e.type, {variant:Math.floor(e.x * 3 + e.y * 7) % 3});
+    g.add(model);
+    g.userData.unitVisual = model;
+  }
+
+  g.traverse(o => {
+    if(o.isMesh){
+      o.castShadow = true;
+      o.userData.baseHex = o.material.color.getHex();
+    }
+  });
+  g.userData.flashing = false; // 显式初始化，否则第一帧会白刷一次全树遍历
+  entityGroup.add(g);
+  enemyMeshMap.set(e, g);
+  return g;
+}
+
+function createPickupMesh(p){
+  const g = new THREE.Group();
+  const box = new THREE.Mesh(
+    new THREE.BoxGeometry(0.5, 0.5, 0.5),
+    new THREE.MeshLambertMaterial({ color: 0xffffff })
+  );
+  box.position.y = 0.35;
+  g.add(box);
+  const cross = new THREE.Mesh(
+    new THREE.BoxGeometry(0.55, 0.12, 0.12),
+    new THREE.MeshLambertMaterial({ color: 0xff3333 })
+  );
+  cross.position.y = 0.35;
+  g.add(cross);
+  const cross2 = cross.clone();
+  cross2.rotation.y = Math.PI / 2;
+  g.add(cross2);
+  entityGroup.add(g);
+  pickupMeshMap.set(p, g);
+  return g;
+}
+
+// 侮辱弹幕：把文字烘焙成贴图，按词缓存复用
+const insultTextures = new Map();
+function getInsultTexture(text){
+  let tex = insultTextures.get(text);
+  if(tex) return tex;
+  const font = 'bold 44px "Courier New", monospace';
+  const measure = document.createElement('canvas').getContext('2d');
+  measure.font = font;
+  const cv = document.createElement('canvas');
+  cv.width = Math.ceil(measure.measureText(text).width) + 28;
+  cv.height = 64;
+  const ctx = cv.getContext('2d');
+  ctx.font = font;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.lineWidth = 7;
+  ctx.strokeStyle = '#000';
+  ctx.strokeText(text, cv.width / 2, cv.height / 2);
+  ctx.fillStyle = '#ff5555';
+  ctx.fillText(text, cv.width / 2, cv.height / 2);
+  tex = new THREE.CanvasTexture(cv);
+  tex.userData.aspect = cv.width / cv.height;
+  insultTextures.set(text, tex);
+  return tex;
+}
+
+function createProjMesh(p){
+  if(p.ptype === 'insult' && p.text){
+    const tex = getInsultTexture(p.text);
+    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true }));
+    sprite.scale.set(tex.userData.aspect * 1.5, 1.5, 1);
+    entityGroup.add(sprite);
+    projMeshMap.set(p, sprite);
+    return sprite;
+  }
+  let color = 0xffaa00;
+  let size = 0.15;
+  if(p.ptype === 'fart'){ color = 0x66cc33; size = 0.35; }
+  else if(p.ptype === 'insult'){ color = 0xff4444; size = 0.25; }
+  else if(p.ptype === 'shell'){ color = 0x333333; size = 0.22; }
+  const mesh = new THREE.Mesh(
+    new THREE.SphereGeometry(size, 8, 8),
+    new THREE.MeshLambertMaterial({ color, transparent: true, opacity: 0.9 })
+  );
+  entityGroup.add(mesh);
+  projMeshMap.set(p, mesh);
+  return mesh;
+}
+
+// 实体从数组里移除时同步回收它的 Mesh，否则会一直堆在场景里
+function releaseMesh(store, key){
+  const mesh = store.get(key);
+  if(!mesh) return;
+  entityGroup.remove(mesh);
+  disposeEntityVisual(mesh);
+  store.delete(key);
+}
+
+function disposeEntityVisual(mesh){
+  if(mesh.userData.bossVisual){
+    BossVisual.dispose(mesh.userData.bossVisual);
+    return;
+  }
+  if(mesh.userData.unitVisual){
+    UnitVisual.dispose(mesh.userData.unitVisual);
+    return;
+  }
+  mesh.traverse(o => {
+    if(o.geometry) o.geometry.dispose();
+    if(o.material) o.material.dispose();
+  });
+}
+
+function syncBuildingVisuals(){
+  for(let i = 0; i < MAP * MAP; i++){
+    if(buildDying[i] > 0){
+      const mesh = buildingMeshes.get(i);
+      if(mesh){
+        const t = buildDying[i] / 30;
+        mesh.scale.y = Math.max(0.05, t);
+        mesh.position.y = 0;
+      }
+    }else if(map[i] !== 1 && buildingMeshes.has(i)){
+      removeBuildingMesh(i);
+    }else if(map[i] === 1 && !buildingMeshes.has(i)){
+      addBuildingMesh(i, i % MAP, Math.floor(i / MAP));
+    }
+  }
+}
+
+function syncEntityMeshes(){
+  playerMesh.position.set(player.x, 0, player.y);
+  playerMesh.rotation.y = -player.aimAngle + Math.PI / 2;
+  animateGodzillaLegs();
+
+  aimLine.position.set(player.x + Math.cos(player.aimAngle) * BALANCE.fireRange / 2, 0.045,
+    player.y + Math.sin(player.aimAngle) * BALANCE.fireRange / 2);
+  aimLine.rotation.y = -player.aimAngle + Math.PI / 2;
+
+  enemies.forEach(e => {
+    let mesh = enemyMeshMap.get(e);
+    if(!mesh && (e.alive || e.deathTimer > -20)) mesh = createEnemyMesh(e);
+    if(!mesh) return;
+    const flyY = e.type === 'helicopter' ? 5 + Math.sin(e.bobPhase) * 0.5
+      : e.onRoof ? (buildHeight[Math.floor(e.y) * MAP + Math.floor(e.x)] || 3) * BUILD_UNIT + (e.type === 'boss' ? 0.025 : 0.6)
+      : 0;
+    mesh.position.set(e.x, flyY, e.y);
+    mesh.rotation.y = -e.facing + Math.PI / 2;
+    const scale = e.alive ? 1 : Math.max(0, 1 + e.deathTimer / 20);
+    const typeScale = e.type === 'boss' ? 3 : e.type === 'fartHero' ? 1.4 : e.type === 'tank' ? 1.2 : 1;
+    mesh.scale.setScalar(scale * typeScale);
+    mesh.visible = e.alive || e.deathTimer > -20;
+    if(mesh.userData.bossVisual){
+      const talk = Math.sin(Math.min(1, (e.tauntTimer || 0) / 32) * Math.PI);
+      BossVisual.animate(mesh.userData.bossVisual, (game ? game.time / 60 : 0) + e.bobPhase * 0.1, talk, e.hitFlash / 10);
+    }
+    if(mesh.userData.unitVisual){
+      UnitVisual.animate(mesh.userData.unitVisual, {
+        time:(game ? game.time / 60 : 0) + e.bobPhase * 0.2,
+        moving:e.type === 'soldier' ? Math.min(1, (e.walkSpeed || 0) / 0.009) : (e.moving ? 1 : 0),
+        cheering:e.type === 'soldier' && isWorkerCheering(e)
+      });
+    }
+    // 只在受击变色状态切换时遍历模型树。
+    const flashing = e.hitFlash > 0;
+    if(mesh.userData.flashing !== flashing){
+      mesh.userData.flashing = flashing;
+      if(flashing){
+        mesh.traverse(c => { if(c.isMesh) c.material.color.setHex(0xff6666); });
+      }else{
+        mesh.traverse(c => { if(c.isMesh && c.userData.baseHex !== undefined) c.material.color.setHex(c.userData.baseHex); });
+      }
+    }
+  });
+
+  pickups.forEach(p => {
+    if(!p.alive) return;
+    let mesh = pickupMeshMap.get(p);
+    if(!mesh) mesh = createPickupMesh(p);
+    const time = game ? game.time : 0;
+    mesh.position.set(p.x, 0.12 + Math.sin(time / 12) * 0.08, p.y);
+    mesh.rotation.y = time * 0.04;
+  });
+
+  projectiles.forEach(p => {
+    if(!p.alive) return;
+    let mesh = projMeshMap.get(p);
+    if(!mesh) mesh = createProjMesh(p);
+    mesh.position.set(p.x, p.z || 0.5, p.y);
+    mesh.material.opacity = p.alpha ?? 1;
+  });
+}
+
+function animateGodzillaLegs(){
+  const legs = playerMesh.userData.legs || [];
+  const walkAmt = clamp(player.bobSpeed / 0.14, 0, 1);
+  const stride = Math.sin(player.bob * 6.5);
+  const lift = Math.abs(stride) * walkAmt;
+  legs.forEach(({ side, leg }) => {
+    const phase = stride * side;
+    leg.rotation.x = phase * 0.34 * walkAmt;
+    leg.rotation.z = leg.userData.baseZRot + phase * 0.08 * walkAmt;
+    leg.position.y = 2.28 + lift * 0.1;
+    leg.position.z = 0.35 - phase * 0.12 * walkAmt;
+    leg.children.forEach(child => {
+      if(!child.userData || child.userData.baseY === undefined) return;
+      const stepLift = Math.max(0, phase) * 0.28 * walkAmt;
+      child.position.y = child.userData.baseY + stepLift;
+      child.position.z = child.userData.baseZ + Math.max(0, phase) * 0.16 * walkAmt;
+      child.rotation.x = -leg.rotation.x * 0.35;
+    });
+  });
+}
+
+function updateCamera(){
+  const tx = player.x + CAM_OFFSET.x;
+  const ty = CAM_OFFSET.y;
+  const tz = player.y + CAM_OFFSET.z;
+  camera.position.lerp(new THREE.Vector3(tx, ty, tz), 0.12);
+  if(player.shakeAmt > 0.05){
+    const s = player.shakeAmt * 0.06;
+    camera.position.x += rand(-s, s);
+    camera.position.y += rand(-s, s);
+    camera.position.z += rand(-s, s);
+  }
+  camera.lookAt(player.x, GODZILLA_H * 0.45, player.y);
+  sunLight.position.set(player.x + 20, 35, player.y + 10);
+  sunLight.target.position.set(player.x, 0, player.y);
+  sunLight.target.updateMatrixWorld();
+}
+
+function updateAimFromMouse(){
+  if(!game || !game.running) return;
+  raycaster.setFromCamera(mouseNDC, camera);
+  const hit = raycaster.ray.intersectPlane(groundPlane, aimPoint);
+  if(hit){
+    player.aimAngle = Math.atan2(aimPoint.z - player.y, aimPoint.x - player.x);
+  }
+}
+
+// 火焰粒子池：几何体全局共用一份，Mesh 死了回收而不是 dispose
+const FIRE_COLORS = ['#ff4400', '#ff8800', '#ffcc00'];
+let fireGeometry = null;
+const firePool = [];
+
+function acquireFireParticle(){
+  const pooled = firePool.pop();
+  if(pooled){ pooled.visible = true; return pooled; }
+  const mesh = new THREE.Mesh(fireGeometry, new THREE.MeshBasicMaterial({ transparent: true }));
+  mesh.userData.pooled = true;
+  fxGroup.add(mesh);
+  return mesh;
+}
+
+function releaseFireParticle(mesh){
+  mesh.visible = false;
+  firePool.push(mesh);
+}
+
+function spawnFireParticle3D(){
+  const dirX = Math.cos(player.aimAngle);
+  const dirZ = Math.sin(player.aimAngle);
+  const reach = player.fireReach || BALANCE.fireRange;
+  const start = Math.min(4.2, Math.max(0.2, reach - 0.35));
+  const mesh = acquireFireParticle();
+  mesh.scale.setScalar(rand(0.15, 0.35));
+  mesh.material.color.set(FIRE_COLORS[randInt(0, 2)]);
+  mesh.material.opacity = 0.85;
+  mesh.position.set(player.x + dirX * start, 5.2, player.y + dirZ * start);
+  const perpX = -dirZ, perpZ = dirX;
+  const spread = rand(-0.35, 0.35);
+  mesh.position.x += perpX * spread;
+  mesh.position.z += perpZ * spread;
+  const span = Math.max(0.15, reach - start);
+  const lifetime = Math.max(3, Math.ceil(span / rand(0.58, 0.72)));
+  const speed = span / lifetime;
+  mesh.userData.vx = dirX * speed + perpX * rand(-0.018, 0.018);
+  mesh.userData.vz = dirZ * speed + perpZ * rand(-0.018, 0.018);
+  mesh.userData.vy = speed * FIRE_RISE_PER_DIST * 0.55;
+  mesh.userData.life = lifetime;
+  mesh.userData.maxLife = mesh.userData.life;
+  fxGroup.add(mesh);
+  fireParticles.push(mesh);
+}
+
+// 阴影相机只覆盖玩家周围 ±40，更远的楼进不了阴影贴图，没必要参与深度 pass。
+// 每 15 帧刷一次，897 次距离比较摊到每帧可以忽略。
+const SHADOW_CULL_RADIUS = 45;
+let shadowCullTick = -1;
+function updateShadowCulling(){
+  const tick = game ? game.time : 0;
+  if(shadowCullTick === tick || tick % 15 !== 0) return;
+  shadowCullTick = tick;
+  const r2 = SHADOW_CULL_RADIUS * SHADOW_CULL_RADIUS;
+  buildingMeshes.forEach(mesh => {
+    const dx = mesh.position.x - player.x, dz = mesh.position.z - player.y;
+    mesh.castShadow = dx * dx + dz * dz < r2;
+  });
+}
+
+function render3D(){
+  syncBuildingVisuals();
+  syncEntityMeshes();
+  updateShadowCulling();
+
+  if(player.stompFrame > 0){
+    stompRing.visible = true;
+    const r = Math.min(1, (10 - player.stompFrame) / 3) * BALANCE.stompRadius;
+    stompRing.position.set(player.x, 0.15, player.y);
+    stompRing.scale.set(r, r, 1);
+    stompRing.material.opacity = player.stompFrame / 10;
+  }else{
+    stompRing.visible = false;
+  }
+
+  renderer.render(scene, camera);
+}
+
+function updateVisualEffects(){
+  for(let i = 0; i < MAP * MAP; i++){
+    if(buildDying[i] <= 0) continue;
+    buildDying[i]--;
+    if(buildDying[i] === 0){
+      removeBuildingMesh(i);
+      map[i] = 0;
+      buildHeight[i] = buildHP[i] = buildMaxHP[i] = buildColorId[i] = 0;
+    }
+  }
+  fireParticles.forEach(p => {
+    p.userData.life--;
+    if(p.userData.life <= 0) return;
+    p.position.x += p.userData.vx;
+    p.position.y += p.userData.vy;
+    p.position.z += p.userData.vz;
+    p.material.opacity = p.userData.life / p.userData.maxLife;
+    p.scale.multiplyScalar(1.035);
+  });
+  fireParticles = fireParticles.filter(p => {
+    if(p.userData.life <= 0){
+      releaseFireParticle(p);
+      return false;
+    }
+    return true;
+  });
+}
+
+// ===== AUDIO =====
+// 全部用振荡器和噪声实时合成，不引任何外部音频文件，保持单文件可离线。
+const audio = { ctx:null, master:null, muted:false, noiseBuf:null };
+
+function initAudio(){
+  if(audio.ctx) return;
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if(!AC) return;
+  audio.ctx = new AC();
+  audio.master = audio.ctx.createGain();
+  audio.master.gain.value = 0.25;
+  audio.master.connect(audio.ctx.destination);
+
+  // 一段一秒的白噪声，火焰和爆炸都从这里取样
+  const len = audio.ctx.sampleRate;
+  audio.noiseBuf = audio.ctx.createBuffer(1, len, audio.ctx.sampleRate);
+  const data = audio.noiseBuf.getChannelData(0);
+  for(let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+}
+
+function sfxTone(freq, dur, type, gain, slideTo){
+  if(!audio.ctx || audio.muted) return;
+  const t = audio.ctx.currentTime;
+  const osc = audio.ctx.createOscillator();
+  const g = audio.ctx.createGain();
+  osc.type = type || 'square';
+  osc.frequency.setValueAtTime(freq, t);
+  if(slideTo) osc.frequency.exponentialRampToValueAtTime(Math.max(1, slideTo), t + dur);
+  g.gain.setValueAtTime(gain, t);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  osc.connect(g); g.connect(audio.master);
+  osc.start(t); osc.stop(t + dur);
+}
+
+function sfxNoise(dur, gain, filterFreq, filterSlide){
+  if(!audio.ctx || audio.muted || !audio.noiseBuf) return;
+  const t = audio.ctx.currentTime;
+  const src = audio.ctx.createBufferSource();
+  src.buffer = audio.noiseBuf;
+  src.loop = true;
+  const flt = audio.ctx.createBiquadFilter();
+  flt.type = 'bandpass';
+  flt.frequency.setValueAtTime(filterFreq, t);
+  if(filterSlide) flt.frequency.exponentialRampToValueAtTime(Math.max(1, filterSlide), t + dur);
+  const g = audio.ctx.createGain();
+  g.gain.setValueAtTime(gain, t);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  src.connect(flt); flt.connect(g); g.connect(audio.master);
+  src.start(t); src.stop(t + dur);
+}
+
+const SFX = {
+  fire:      () => sfxNoise(0.18, 0.16, 900, 300),
+  stomp:     () => { sfxTone(90, 0.35, 'sine', 0.5, 30); sfxNoise(0.3, 0.3, 200, 60); },
+  destroy:   () => { sfxNoise(0.55, 0.45, 420, 70); sfxTone(70, 0.4, 'triangle', 0.3, 25); },
+  hurt:      () => sfxTone(220, 0.22, 'sawtooth', 0.35, 70),
+  heal:      () => { sfxTone(660, 0.1, 'sine', 0.25); setTimeout(() => sfxTone(990, 0.14, 'sine', 0.22), 90); },
+  crit:      () => { sfxTone(160, 0.18, 'sawtooth', 0.4, 900); sfxNoise(0.25, 0.25, 1600, 400); },
+  kill:      () => sfxTone(400, 0.16, 'square', 0.28, 120),
+  bossDown:  () => { sfxTone(300, 0.5, 'sawtooth', 0.35, 60); sfxNoise(0.5, 0.3, 700, 120); },
+  insult:    () => sfxTone(520, 0.14, 'square', 0.2, 380),
+  worker:    () => sfxTone(300, 0.3, 'triangle', 0.25, 90),
+  wave:      () => { [523, 659, 784].forEach((f, i) => setTimeout(() => sfxTone(f, 0.16, 'square', 0.22), i * 110)); },
+  gameover:  () => { [400, 320, 250, 160].forEach((f, i) => setTimeout(() => sfxTone(f, 0.35, 'sawtooth', 0.3), i * 190)); }
+};
+
+function toggleMute(){
+  audio.muted = !audio.muted;
+  if(audio.master) audio.master.gain.value = audio.muted ? 0 : 0.25;
+  document.getElementById('mute-button').textContent = audio.muted ? '开启声音' : '静音';
+}
+
+// ===== UTILS =====
+const rand = (a, b) => Math.random() * (b - a) + a;
+const randInt = (a, b) => Math.floor(rand(a, b + 1));
+const lerp = (a, b, t) => a + (b - a) * t;
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const dist2 = (x1, y1, x2, y2) => Math.hypot(x2 - x1, y2 - y1);
+const normAngle = a => { while(a > Math.PI) a -= 2 * Math.PI; while(a < -Math.PI) a += 2 * Math.PI; return a; };
+
+// ===== MAP =====
+const MAP = 72;
+const map = [];
+const buildColorId = [];
+const buildHeight = [];
+const buildHP = [];
+const buildMaxHP = [];
+const buildDying = [];
+
+const WALL_COLORS = [
+  [118,118,118],[108,108,108],[128,128,128],[98,98,98],
+  [112,112,112],[122,122,122],[104,104,104],[132,132,132]
+];
+
+function genMap(){
+  for(let i = 0; i < MAP * MAP; i++){
+    map[i] = 0; buildColorId[i] = 0; buildHeight[i] = 0;
+    buildHP[i] = 0; buildMaxHP[i] = 0; buildDying[i] = -1;
+  }
+  const BLOCK_STEP = 11; // 街区间距（约为原先 9 的两倍空隙）
+  for(let by = 0; by < MAP; by += BLOCK_STEP){
+    for(let bx = 0; bx < MAP; bx += BLOCK_STEP){
+      if(bx + 9 >= MAP || by + 9 >= MAP) continue;
+      const offX = randInt(0, 1), offY = randInt(0, 1);
+      const w = randInt(4, 6), h = randInt(4, 6);
+      const cid = randInt(0, WALL_COLORS.length - 1);
+      const bhp = randInt(8, 20);
+      const bht = randInt(2, 5);
+      for(let yy = by + offY; yy < by + offY + h && yy < MAP - 1; yy++){
+        for(let xx = bx + offX; xx < bx + offX + w && xx < MAP - 1; xx++){
+          if(xx < 1 || yy < 1) continue;
+          const ci = yy * MAP + xx;
+          map[ci] = 1;
+          buildColorId[ci] = cid;
+          buildHeight[ci] = bht;
+          buildHP[ci] = bhp;
+          buildMaxHP[ci] = bhp;
+          buildDying[ci] = -1;
+        }
+      }
+    }
+  }
+  const cx = Math.floor(MAP / 2), cy = Math.floor(MAP / 2);
+  for(let dy = -5; dy <= 5; dy++) for(let dx = -5; dx <= 5; dx++){
+    const mx = cx + dx, my = cy + dy;
+    if(mx >= 0 && mx < MAP && my >= 0 && my < MAP){
+      const ci = my * MAP + mx;
+      map[ci] = buildHeight[ci] = buildHP[ci] = buildMaxHP[ci] = 0;
+    }
+  }
+}
+
+function isWall(mx, my){
+  if(mx < 0 || my < 0 || mx >= MAP || my >= MAP) return true;
+  return map[my * MAP + mx] === 1 && buildDying[my * MAP + mx] < 0;
+}
+
+function canOccupy(x, y, radius){
+  for(let cy = Math.floor(y - radius); cy <= Math.floor(y + radius); cy++){
+    for(let cx = Math.floor(x - radius); cx <= Math.floor(x + radius); cx++){
+      if(!isWall(cx, cy)) continue;
+      const dx = x - clamp(x, cx, cx + 1), dy = y - clamp(y, cy, cy + 1);
+      if(dx * dx + dy * dy < radius * radius) return false;
+    }
+  }
+  return true;
+}
+
+const FIRE_ORIGIN_H = 5.8;
+const FIRE_RISE_PER_DIST = 0.55;
+const FIRE_HALF_WIDTH = 1.0; // 火焰弹道半宽（约为原先单格中心线的一倍）
+const FIRE_VERT_TOL = 1.8;   // 上边缘的宽容量
+// 火舌在这个距离内还压在街面上，之后才整体抬起来。
+// 喷火口在 5.8 米、矮楼只有 4.4 米，没有这段贴地距离的话贴脸烧楼会整个失效。
+// 取 10：0~18 格内所有楼的手感和原来完全一致，18 格外矮楼开始被从头顶掠过，
+// 到满射程 24 格时只剩 4 层以上的高楼还在火舌里——「远处只能烧高楼」这条规则才立得住。
+const FIRE_GROUND_REACH = 10;
+
+function fireBeamPerpDist(px, py, fx, fy, dirX, dirY){
+  return Math.abs(-dirY * (px - fx) + dirX * (py - fy));
+}
+
+// 火焰在距离 d 处覆盖的高度区间，建筑和敌人共用同一套判定
+function fireBeamTop(d){
+  return FIRE_ORIGIN_H + d * FIRE_RISE_PER_DIST + FIRE_VERT_TOL;
+}
+
+function fireBeamBottom(d){
+  return d <= FIRE_GROUND_REACH ? 0 : (d - FIRE_GROUND_REACH) * FIRE_RISE_PER_DIST;
+}
+
+function getEnemyHeight(e){
+  if(e.type === 'helicopter') return e.z || 5;
+  if(e.onRoof){
+    const mx = Math.floor(e.x), my = Math.floor(e.y);
+    const ci = my * MAP + mx;
+    const offset = e.type === 'boss' ? 1.8 : 1.2;
+    return (buildHeight[ci] || 3) * BUILD_UNIT + offset;
+  }
+  return e.type === 'boss' ? 1.8 : 1.2;
+}
+
+function getEnemyHitRadius(e){
+  if(e.type === 'boss') return 2.2;
+  if(e.onRoof) return 1.1;
+  if(e.type === 'fartHero') return 0.45;
+  if(e.type === 'helicopter') return 0.55;
+  if(e.type === 'tank') return 0.8;
+  return Math.max(0.3, e.size * 5);
+}
+
+function canFireHitEnemy(e, fx, fy, d, dirX, dirY){
+  const remaining = (e.x - fx) * dirX + (e.y - fy) * dirY;
+  const along = d + remaining;
+  if(along < 0 || along > BALANCE.fireRange) return false;
+  if(Math.abs(remaining) > getEnemyHitRadius(e) + BALANCE.fireStep / 2) return false;
+  if(fireBeamPerpDist(e.x, e.y, fx, fy, dirX, dirY) >= FIRE_HALF_WIDTH + getEnemyHitRadius(e)) return false;
+  const h = getEnemyHeight(e);
+  return h <= fireBeamTop(along) && h >= fireBeamBottom(along) - FIRE_VERT_TOL;
+}
+
+// 摧毁一格建筑：回血 + 加分，返回回复的血量
+function destroyBuilding(ci, game){
+  if(map[ci] !== 1 || buildDying[ci] >= 0) return 0;
+  buildDying[ci] = 30;
+  const heal = Math.ceil(buildMaxHP[ci] * 1.5);
+  player.hp = Math.min(player.maxHp, player.hp + heal);
+  game.addScore(buildMaxHP[ci] * 100);
+  return heal;
+}
+
+// 同一帧可能塌掉多格，合并成一条反馈，避免刷屏
+function reportDestroyed(count, heal){
+  if(count <= 0) return;
+  player.shakeAmt = Math.max(player.shakeAmt, 10);
+  SFX.destroy();
+  pushEffect('destroy', 40, count > 1 ? `建筑摧毁 x${count}! +${heal}HP` : `建筑摧毁! +${heal}HP`);
+}
+
+function damageBuildingsInBeam(fx, fy, dirX, dirY, d, game, hitCells = new Set()){
+  const r = Math.ceil(FIRE_HALF_WIDTH + 0.5);
+  const mx0 = Math.floor(fx) - r, mx1 = Math.floor(fx) + r;
+  const my0 = Math.floor(fy) - r, my1 = Math.floor(fy) + r;
+  let killed = 0, healed = 0, blocked = false;
+  for(let mx2 = mx0; mx2 <= mx1; mx2++){
+    for(let my2 = my0; my2 <= my1; my2++){
+      if(mx2 < 0 || my2 < 0 || mx2 >= MAP || my2 >= MAP) continue;
+      const remaining = (mx2 + 0.5 - fx) * dirX + (my2 + 0.5 - fy) * dirY;
+      const along = d + remaining;
+      if(along < 0 || along > BALANCE.fireRange || Math.abs(remaining) > 0.5 + BALANCE.fireStep / 2) continue;
+      if(fireBeamPerpDist(mx2 + 0.5, my2 + 0.5, fx, fy, dirX, dirY) > FIRE_HALF_WIDTH + 0.5) continue;
+      const ci = my2 * MAP + mx2;
+      if(map[ci] !== 1 || buildDying[ci] >= 0) continue;
+      if(hitCells.has(ci)) continue;
+      // 楼太矮、火舌已经从头顶掠过去了就打不到
+      if(buildHeight[ci] * BUILD_UNIT < fireBeamBottom(along)) continue;
+      hitCells.add(ci);
+      blocked = true;
+      const morale = player.insultDebuff > 0 ? BALANCE.insultFireMult : 1;
+      buildHP[ci] -= BALANCE.fireDamage * morale;
+      if(buildHP[ci] <= 0){
+        healed += destroyBuilding(ci, game);
+        killed++;
+      }
+    }
+  }
+  reportDestroyed(killed, healed);
+  return blocked;
+}
+
+// ===== PLAYER =====
+const player = {
+  x: MAP / 2 + 0.5, y: MAP / 2 + 0.5,
+  aimAngle: 0,
+  hp: BALANCE.maxHp, maxHp: BALANCE.maxHp,
+  score: 0, combo: 0, comboTimer: 0,
+  fireCD: 0, stompCD: 0,
+  fireReach: BALANCE.fireRange,
+  stompFrame: 0,
+  bob: 0, bobSpeed: 0,
+  speed: BALANCE.playerSpeed,
+  invincible: 0,
+  damageFlash: 0,
+  shakeAmt: 0,
+  cheerCount: 0
+};
+
+function resetPlayer(){
+  player.x = MAP / 2 + 0.5; player.y = MAP / 2 + 0.5;
+  player.aimAngle = 0;
+  player.hp = BALANCE.maxHp; player.maxHp = BALANCE.maxHp;
+  player.score = 0; player.combo = 0; player.comboTimer = 0;
+  player.fireCD = 0; player.stompCD = 0;
+  player.fireReach = BALANCE.fireRange;
+  player.stompFrame = 0;
+  player.bob = 0; player.bobSpeed = 0;
+  player.invincible = 0; player.damageFlash = 0; player.shakeAmt = 0; player.cheerCount = 0;
+  player.fartDebuff = 0; player.insultDebuff = 0; player.lastInsult = '';
+}
+
+// ===== ENEMIES =====
+let enemies = [];
+let projectiles = [];
+let pickups = [];
+let effects = [];
+let fireParticles = [];
+
+// 同类提示刷新而不是堆叠，否则每帧结算会把屏幕铺满
+function pushEffect(type, timer, text){
+  const existing = effects.find(e => e.type === type);
+  if(existing){ existing.timer = timer; existing.text = text; return; }
+  effects.push({ type, timer, text });
+}
+
+// BALANCE 已上移到文件顶部统一管理
+
+const ENEMY_TYPES = {
+  soldier:{ hp:2, speed:0.018, damage:0, score:0, shootRate:80, size:0.12 },
+  tank:{ hp:10, speed:0.008, damage:12, score:500, shootRate:130, size:0.06 },
+  helicopter:{ hp:5, speed:0.025, damage:7, score:300, shootRate:90, size:0.12, flying:true },
+  fartHero:{ hp:20, speed:0.015, damage:15, score:1000, shootRate:100, size:0.16 },
+  // 老板站在楼顶、免疫踩踏，只能用火焰点掉。火焰是每 3 帧结算 2 点，
+  // 12 点血约等于 0.3 秒持续命中；血量和伤害随波次成长。
+  boss:{ hp:12, speed:0, damage:8, score:800, shootRate:150, size:0.06, onRoof:true }
+};
+
+// wave 10 之后靠属性成长继续加压，而不是往场上堆更多怪——
+// 刷新间隔和每批数量再往上加会直接把帧率和可玩性一起吃掉。
+function waveScale(wave){
+  return 1 + Math.max(0, wave - 10) * BALANCE.waveGrowth;
+}
+
+function spawnEnemy(type, x, y){
+  const t = ENEMY_TYPES[type];
+  const s = waveScale(game ? game.wave : 1);
+  const hp = Math.round(t.hp * s);
+  const e = {
+    type, x, y, hp, maxHp:hp, speed:t.speed, damage:Math.round(t.damage * s),
+    score:Math.round(t.score * s), shootRate:t.shootRate, shootTimer:randInt(30, t.shootRate),
+    size:t.size, alive:true, flying:!!t.flying, onRoof:!!t.onRoof,
+    facing:rand(0, Math.PI * 2), bobPhase:rand(0, 6.28),
+    hitFlash:0, deathTimer:-1
+  };
+  if(type === 'helicopter') e.z = 5;
+  if(type === 'boss'){
+    const mx = Math.floor(x), my = Math.floor(y);
+    const ci = my * MAP + mx;
+    e.z = (buildHeight[ci] || 3) * BUILD_UNIT + 1.8;
+    e.insultWords = ['996福报!','你被优化了!','回去加班!','绩效C!','明天不用来了!','KPI不达标!','降薪!','裁员!','卷起来!','PUA你!'];
+    e.insultTimer = 0;
+    e.tauntTimer = 0;
+  }
+  enemies.push(e);
+}
+
+// 统一的击杀结算：火焰和踩踏共用，保证掉落一致
+function killEnemy(e, game){
+  if(!e.alive) return;
+  e.alive = false;
+  e.deathTimer = 0;
+  game.addScore(e.score);
+  if(e.type === 'boss'){
+    for(let pi = 0; pi < BALANCE.bossPickups; pi++){
+      pickups.push({ x:e.x + rand(-0.5, 0.5), y:e.y + rand(-0.5, 0.5), alive:true, life:BALANCE.pickupLife, healAmount:BALANCE.bossHeal });
+    }
+    SFX.bossDown();
+    pushEffect('boss', 60, '老板倒了! 血包爆出来了!');
+  }else if(e.type === 'fartHero'){
+    pickups.push({ x:e.x, y:e.y, alive:true, life:BALANCE.pickupLife, healAmount:BALANCE.fartHeal });
+    SFX.kill();
+    pushEffect('kill', 40, '放屁侠已沉默!');
+  }else if(e.type === 'tank'){
+    pickups.push({ x:e.x, y:e.y, alive:true, life:BALANCE.tankPickupLife, healAmount:BALANCE.tankHeal });
+  }
+}
+
+function getSpawnPos(range){
+  for(let tries = 0; tries < 50; tries++){
+    const a = rand(0, Math.PI * 2);
+    const d = rand(range * 0.4, range);
+    const sx = player.x + Math.cos(a) * d;
+    const sy = player.y + Math.sin(a) * d;
+    const mx = Math.floor(sx), my = Math.floor(sy);
+    if(mx > 0 && my > 0 && mx < MAP - 1 && my < MAP - 1 && canOccupy(sx, sy, 0.85)) return { x:sx, y:sy };
+  }
+  return null;
+}
+
+const BOSS_MIN_GAP = 5; // 老板不会自己消失，不留间距的话会在同一片楼顶叠成一堆
+
+function getRoofPos(){
+  for(let tries = 0; tries < 60; tries++){
+    const a = rand(0, Math.PI * 2);
+    const d = rand(3, 12);
+    const sx = player.x + Math.cos(a) * d;
+    const sy = player.y + Math.sin(a) * d;
+    const mx = Math.floor(sx), my = Math.floor(sy);
+    if(mx <= 0 || my <= 0 || mx >= MAP - 1 || my >= MAP - 1) continue;
+    if(map[my * MAP + mx] !== 1) continue;
+    const height = buildHeight[my * MAP + mx];
+    let safe = true;
+    for(let oy = -1; oy <= 1; oy++) for(let ox = -1; ox <= 1; ox++){
+      const ci = (my + oy) * MAP + mx + ox;
+      if(!isWall(mx + ox, my + oy) || buildHeight[ci] !== height) safe = false;
+    }
+    if(!safe) continue;
+    const x = mx + 0.5, y = my + 0.5;
+    if(enemies.some(e => e.alive && e.type === 'boss' && dist2(e.x, e.y, x, y) < BOSS_MIN_GAP)) continue;
+    return { x, y, z:height * BUILD_UNIT };
+  }
+  return null;
+}
+
+// 打工人是队友：站在附近会给你续连击计时，但会被敌方流弹打死
+const WORKER_CHEER_RADIUS = 8;
+const WORKER_CHEER_MAX = 4;
+
+function countCheeringWorkers(){
+  let n = 0;
+  for(const e of enemies){
+    if(isWorkerCheering(e)) n++;
+  }
+  return Math.min(n, WORKER_CHEER_MAX);
+}
+
+function hasClearGroundLine(x1, y1, x2, y2){
+  const distance = dist2(x1, y1, x2, y2);
+  const steps = Math.ceil(distance / 0.35);
+  for(let i = 1; i < steps; i++){
+    const t = i / steps;
+    if(isWall(Math.floor(lerp(x1, x2, t)), Math.floor(lerp(y1, y2, t)))) return false;
+  }
+  return true;
+}
+
+function isWorkerCheering(e){
+  return e.alive && e.type === 'soldier' &&
+    dist2(player.x, player.y, e.x, e.y) < WORKER_CHEER_RADIUS &&
+    hasClearGroundLine(player.x, player.y, e.x, e.y);
+}
+
+// ===== HUD (2D overlay) =====
+const workerLabelPoint = new THREE.Vector3();
+function drawWorkerLabels(){
+  const nearby = enemies.filter(e => e.alive && e.type === 'soldier' &&
+    dist2(player.x, player.y, e.x, e.y) < 12 && hasClearGroundLine(player.x, player.y, e.x, e.y))
+    .sort((a, b) => dist2(player.x, player.y, a.x, a.y) - dist2(player.x, player.y, b.x, b.y)).slice(0, 4);
+  X.font = '11px system-ui';
+  X.textAlign = 'center';
+  for(const e of nearby){
+    workerLabelPoint.set(e.x, 2.75, e.y).project(camera);
+    if(workerLabelPoint.z < -1 || workerLabelPoint.z > 1) continue;
+    const x = (workerLabelPoint.x * 0.5 + 0.5) * H.width;
+    const y = (-workerLabelPoint.y * 0.5 + 0.5) * H.height;
+    if(x < 45 || x > H.width - 45 || y < 130 || y > H.height - 80) continue;
+    const text = isWorkerCheering(e) ? '同事 · 助威中' : '同事 · 友军';
+    X.fillStyle = 'rgba(12,40,33,0.88)';
+    X.fillRect(x - 41, y - 13, 82, 20);
+    X.fillStyle = '#aaf2d1';
+    X.fillText(text, x, y + 1);
+  }
+  X.textAlign = 'left';
+}
+
+function drawHUD(){
+  const w = H.width, h = H.height;
+  X.clearRect(0, 0, w, h);
+  drawWorkerLabels();
+
+  // 固定信息使用深色底板，避免浅色道路和屋顶吞掉白字。
+  X.fillStyle = 'rgba(10,25,36,0.87)';
+  X.fillRect(12, 14, w < 360 ? 140 : w < 440 ? 152 : 178, 66);
+  X.fillRect(w - 160, 14, 148, audio.muted ? 91 : 73);
+  const hpX = 20, hpY = h - 39, hpW = Math.min(200, Math.max(110, w - 164)), hpH = 22;
+  X.fillRect(hpX - 8, hpY - 24, hpW + 16, hpH + 32);
+  X.fillStyle = '#bacbd6';
+  X.font = '11px system-ui';
+  X.fillText('巨兽生命', hpX, hpY - 8);
+  X.fillStyle = '#223d45';
+  X.fillRect(hpX, hpY, hpW, hpH);
+  const hpR = clamp(player.hp / player.maxHp, 0, 1);
+  X.fillStyle = hpR > 0.5 ? '#319568' : hpR > 0.25 ? '#927219' : '#ad3e36';
+  X.fillRect(hpX, hpY, hpW * hpR, hpH);
+  X.fillStyle = '#fff';
+  X.font = 'bold 13px system-ui';
+  X.fillText(`${Math.ceil(player.hp)} / ${player.maxHp}`, hpX + 8, hpY + 16);
+
+  X.textAlign = 'right';
+  X.font = 'bold 17px system-ui';
+  X.fillText(`分数 ${player.score}`, w - 23, 38);
+  X.font = '13px system-ui';
+  X.fillStyle = '#d1dce5';
+  X.fillText(`第 ${game.wave} 波`, w - 23, 59);
+  X.fillStyle = player.score > highScore ? '#91e8bd' : '#a9bdcc';
+  X.font = '11px system-ui';
+  X.fillText(player.score > highScore ? `新纪录 ${player.score}` : `最高 ${highScore}`, w - 23, 77);
+  if(audio.muted){
+    X.fillStyle = '#ffc0ac';
+    X.fillText('静音中 [M]', w - 23, 94);
+  }
+  X.textAlign = 'left';
+  X.font = 'bold 12px system-ui';
+  X.fillStyle = player.stompCD > 0 ? '#d1dce5' : '#91e8bd';
+  X.fillText(player.stompCD > 0 ? `踩踏 ${(player.stompCD / 60).toFixed(1)}s 后就绪` : '踩踏就绪 [空格]', 22, 38);
+  X.fillStyle = '#b3c8d7';
+  X.font = '11px system-ui';
+  X.fillText(`同事助威 ${player.cheerCount}/4 · +${(player.cheerCount * 0.5).toFixed(1)}s`, 22, 61);
+
+  if(player.combo > 1){
+    const comboY = w < 600 ? 116 : 40;
+    X.fillStyle = 'rgba(10,25,36,0.87)';
+    X.fillRect(w / 2 - 62, comboY - 25, 124, 35);
+    X.fillStyle = '#ffc260';
+    X.font = 'bold 21px system-ui';
+    X.textAlign = 'center';
+    X.fillText(`${Math.min(player.combo, 10)}x 连击`, w / 2, comboY);
+    X.textAlign = 'left';
+  }
+
+  // aim crosshair at mouse
+  X.strokeStyle = player.fireCD <= 0 ? '#ff4400' : 'rgba(255,255,255,0.75)';
+  X.lineWidth = 2;
+  const cx = mouseScreen.x, cy = mouseScreen.y;
+  const cs = 12;
+  X.beginPath(); X.moveTo(cx - cs, cy); X.lineTo(cx - 4, cy); X.stroke();
+  X.beginPath(); X.moveTo(cx + 4, cy); X.lineTo(cx + cs, cy); X.stroke();
+  X.beginPath(); X.moveTo(cx, cy - cs); X.lineTo(cx, cy - 4); X.stroke();
+  X.beginPath(); X.moveTo(cx, cy + 4); X.lineTo(cx, cy + cs); X.stroke();
+  X.beginPath(); X.arc(cx, cy, 2, 0, Math.PI * 2); X.stroke();
+
+  // minimap
+  const mmS = 3, mmR = 18;
+  const mmX = w - mmS * mmR * 2 - 15, mmY = h - mmS * mmR * 2 - 15;
+  X.fillStyle = 'rgba(0,0,0,0.5)';
+  X.fillRect(mmX - 2, mmY - 2, mmS * mmR * 2 + 4, mmS * mmR * 2 + 4);
+  for(let dy = -mmR; dy < mmR; dy++){
+    for(let dx = -mmR; dx < mmR; dx++){
+      const mx = Math.floor(player.x) + dx, my = Math.floor(player.y) + dy;
+      if(mx < 0 || my < 0 || mx >= MAP || my >= MAP) continue;
+      if(map[my * MAP + mx] === 1 && buildDying[my * MAP + mx] < 0){
+        X.fillStyle = 'rgba(110,110,110,0.7)';
+        X.fillRect(mmX + (dx + mmR) * mmS, mmY + (dy + mmR) * mmS, mmS, mmS);
+      }
+    }
+  }
+  enemies.forEach(e => {
+    if(!e.alive) return;
+    const ex = Math.floor(e.x - player.x) + mmR, ey = Math.floor(e.y - player.y) + mmR;
+    if(ex < 0 || ey < 0 || ex >= mmR * 2 || ey >= mmR * 2) return;
+    X.fillStyle = e.type === 'soldier' ? '#79e1bf' : e.type === 'fartHero' ? '#dcb0ff' : e.type === 'boss' ? '#ff766c' : '#ffda7e';
+    X.fillRect(mmX + ex * mmS, mmY + ey * mmS, mmS, mmS);
+  });
+  X.fillStyle = '#fff';
+  X.fillRect(mmX + mmR * mmS - 1, mmY + mmR * mmS - 1, 3, 3);
+  X.strokeStyle = '#ff4400';
+  X.beginPath();
+  X.moveTo(mmX + mmR * mmS + 1, mmY + mmR * mmS + 1);
+  X.lineTo(mmX + mmR * mmS + 1 + Math.cos(player.aimAngle) * 8, mmY + mmR * mmS + 1 + Math.sin(player.aimAngle) * 8);
+  X.stroke();
+
+  if(player.damageFlash > 0){
+    X.fillStyle = `rgba(255,0,0,${player.damageFlash / 15 * 0.35})`;
+    X.fillRect(0, 0, w, h);
+  }
+  if(player.fartDebuff > 0){
+    X.fillStyle = `rgba(80,200,40,${player.fartDebuff / 25 * 0.25})`;
+    X.fillRect(0, 0, w, h);
+  }
+  // 受伤闪红已经是 0.35，两层红叠上去整个画面会糊成一片，所以错开来画
+  if(player.insultDebuff > 0 && player.damageFlash <= 0){
+    X.fillStyle = `rgba(160,30,30,${player.insultDebuff / 20 * 0.12})`;
+    X.fillRect(0, 0, w, h);
+  }
+
+  // debuff 状态条
+  let dbY = h - 84;
+  X.font = 'bold 12px system-ui';
+  if(player.fartDebuff > 0 || player.insultDebuff > 0){
+    X.fillStyle = 'rgba(10,25,36,0.9)';
+    X.fillRect(12, dbY - 33, Math.min(385, w - 24), 43);
+  }
+  if(player.fartDebuff > 0){
+    X.fillStyle = '#8f4';
+    X.fillText(`熏晕中: 移速 -40% (${(player.fartDebuff / 60).toFixed(1)}s)`, 20, dbY);
+    dbY -= 16;
+  }
+  if(player.insultDebuff > 0){
+    X.fillStyle = '#f66';
+    const quote = w >= 520 ? `「${player.lastInsult}」` : '';
+    X.fillText(`心态崩了${quote} · 火力 -40% (${(player.insultDebuff / 60).toFixed(1)}s)`, 20, dbY);
+  }
+
+  if(w >= 900){
+    X.fillStyle = 'rgba(10,25,36,0.85)';
+    X.fillRect(w / 2 - 285, h - 31, 570, 25);
+    X.fillStyle = '#cad9e2';
+    X.font = '11px system-ui';
+    X.textAlign = 'center';
+    X.fillText(touchState.active
+      ? '左侧拖动移动（推到底冲刺） · 右侧拖动瞄准、轻点踩踏'
+      : 'WASD 移动 · Shift 冲刺 · 鼠标瞄准 · 空格踩踏 · P 暂停 · M 静音', w / 2, h - 14);
+    X.textAlign = 'left';
+  }
+  drawJoystick();
+}
+
+// ===== GAME =====
+let game = null;
+let paused = false;
+
+// ===== 最高分持久化 =====
+const HIGHSCORE_KEY = 'kaiju-destroyer-highscore';
+let highScore = 0;
+
+function loadHighScore(){
+  try{
+    highScore = parseInt(localStorage.getItem(HIGHSCORE_KEY), 10) || 0;
+  }catch(err){
+    highScore = 0; // file:// 或隐私模式下 localStorage 可能直接抛异常
+  }
+}
+
+// 返回本局是否刷新了纪录
+function saveHighScore(score){
+  if(score <= highScore) return false;
+  highScore = score;
+  try{ localStorage.setItem(HIGHSCORE_KEY, String(score)); }catch(err){ /* 存不下就只留内存里 */ }
+  return true;
+}
+
+function clearDynamicMeshes(){
+  [...entityGroup.children].forEach(c => {
+    if(c === playerMesh || c === aimLine) return;
+    entityGroup.remove(c);
+    disposeEntityVisual(c);
+  });
+  // 池化的火焰粒子共用一份几何体，不能跟着 dispose，回收即可
+  [...fxGroup.children].forEach(c => {
+    if(c === stompRing || c.userData.pooled) return;
+    fxGroup.remove(c);
+    c.traverse(o => {
+      if(o.geometry) o.geometry.dispose();
+      if(o.material) o.material.dispose();
+    });
+  });
+  fireParticles.forEach(releaseFireParticle);
+  fireParticles = [];
+}
+
+class Game{
+  constructor(){
+    resetInputState();
+    resetFrameClock();
+    genMap();
+    resetPlayer();
+    enemies = []; projectiles = []; pickups = []; effects = [];
+    this.wave = 1; this.waveTimer = 0; this.spawnTimer = 0; this.time = 0; this.running = true;
+    this.bossSpawnTimer = 150;
+    shadowCullTick = -1;
+    if(!renderer) initThree();
+    clearDynamicMeshes();
+    buildCityMeshes();
+    camera.position.set(player.x + CAM_OFFSET.x, CAM_OFFSET.y, player.y + CAM_OFFSET.z);
+    camera.lookAt(player.x, GODZILLA_H * 0.45, player.y);
+  }
+
+  update(){
+    this.time++;
+    if(!this.running) return;
+    updateVisualEffects();
+
+    updateAimFromMouse();
+
+    this.waveTimer++;
+    if(this.waveTimer > 900){ this.waveTimer = 0; this.wave++; SFX.wave(); }
+
+    this.updatePlayer();
+    player.cheerCount = countCheeringWorkers();
+
+    this.spawnTimer--;
+    if(this.spawnTimer <= 0){
+      this.spawnTimer = Math.max(40, 130 - this.wave * 6);
+      this.spawnWaveEnemies();
+    }
+
+    this.bossSpawnTimer--;
+    if(this.bossSpawnTimer <= 0){
+      this.bossSpawnTimer = Math.max(100, 250 - this.wave * 15);
+      const rp = getRoofPos();
+      if(rp) spawnEnemy('boss', rp.x, rp.y);
+    }
+
+    enemies.forEach(e => this.updateEnemy(e));
+    enemies = enemies.filter(e => {
+      if(e.alive || e.deathTimer > -20) return true;
+      releaseMesh(enemyMeshMap, e);
+      return false;
+    });
+
+    projectiles.forEach(p => this.updateProjectile(p));
+    projectiles = projectiles.filter(p => {
+      if(p.alive) return true;
+      releaseMesh(projMeshMap, p);
+      return false;
+    });
+
+    pickups.forEach(p => {
+      if(!p.alive) return;
+      p.life--;
+      if(p.life <= 0){ p.alive = false; return; }
+      if(dist2(player.x, player.y, p.x, p.y) < PLAYER_PICKUP_RADIUS){
+        p.alive = false;
+        const heal = p.healAmount || 25;
+        player.hp = Math.min(player.maxHp, player.hp + heal);
+        SFX.heal();
+        pushEffect('heal', 30, `+${heal} HP`);
+      }
+    });
+    pickups = pickups.filter(p => {
+      if(p.alive) return true;
+      releaseMesh(pickupMeshMap, p);
+      return false;
+    });
+
+    if(player.fireCD <= 0) this.doFireBreath();
+    if(player.fireCD > 0) player.fireCD--;
+
+    if(player.stompFrame > 0){
+      player.stompFrame--;
+      if(player.stompFrame === 8) this.doStompHit();
+    }
+    if(player.stompCD > 0) player.stompCD--;
+
+    if(player.fartDebuff > 0) player.fartDebuff--;
+    if(player.insultDebuff > 0) player.insultDebuff--;
+    if(player.damageFlash > 0) player.damageFlash--;
+    if(player.shakeAmt > 0) player.shakeAmt *= 0.85;
+    if(player.invincible > 0) player.invincible--;
+
+    if(player.comboTimer > 0){ player.comboTimer--; if(player.comboTimer <= 0) player.combo = 0; }
+
+    effects.forEach(e => e.timer--);
+    effects = effects.filter(e => e.timer > 0);
+
+    if(this.time % 60 === 0) player.score += 10;
+    updateCamera();
+    if(player.hp <= 0){ this.running = false; SFX.gameover(); }
+  }
+
+  updatePlayer(){
+    const slow = player.fartDebuff > 0 ? BALANCE.fartSlowMult : 1;
+    const fwd = new THREE.Vector3(player.x - camera.position.x, 0, player.y - camera.position.z).normalize();
+    const right = new THREE.Vector3().crossVectors(fwd, new THREE.Vector3(0, 1, 0)).normalize();
+    let forward = Number(input.w) - Number(input.s);
+    let sideways = Number(input.d) - Number(input.a);
+    let sprint = input.shift;
+    if(touchState.moveId !== null){
+      const magnitude = Math.hypot(touchState.dx, touchState.dy);
+      if(magnitude > JOY_DEADZONE){
+        forward = -touchState.dy; sideways = touchState.dx;
+        sprint = magnitude > 0.85;
+      }
+    }
+    const magnitude = Math.max(1, Math.hypot(forward, sideways));
+    const speed = player.speed * slow * (sprint ? BALANCE.sprintMult : 1);
+    const mx = (fwd.x * forward + right.x * sideways) / magnitude * speed;
+    const mz = (fwd.z * forward + right.z * sideways) / magnitude * speed;
+    const beforeX = player.x, beforeY = player.y;
+    const nx = player.x + mx, nz = player.y + mz;
+    if(canOccupy(nx, player.y, 1.05)) player.x = nx;
+    if(canOccupy(player.x, nz, 1.05)) player.y = nz;
+    player.x = clamp(player.x, 1.05, MAP - 1.05);
+    player.y = clamp(player.y, 1.05, MAP - 1.05);
+    const moving = dist2(beforeX, beforeY, player.x, player.y) > 0.001;
+    player.bobSpeed = lerp(player.bobSpeed, moving ? 0.15 : 0, 0.1);
+    player.bob += player.bobSpeed;
+  }
+
+  doFireBreath(){
+    player.fireCD = 3;
+    const dirX = Math.cos(player.aimAngle), dirY = Math.sin(player.aimAngle);
+    const range = BALANCE.fireRange, step = BALANCE.fireStep;
+    // 被老板骂到士气受挫，火力打折
+    const morale = player.insultDebuff > 0 ? BALANCE.insultFireMult : 1;
+    const hitCells = new Set();
+    player.fireReach = range;
+
+    for(let d = 0.3; d < range; d += step){
+      const fx = player.x + dirX * d, fy = player.y + dirY * d;
+
+      let hitEnemy = false;
+      enemies.forEach(e => {
+        if(!e.alive || hitEnemy) return;
+        if(e.type === 'soldier') return; // 打工人是队友
+        if(!canFireHitEnemy(e, fx, fy, d, dirX, dirY)) return;
+        hitEnemy = true;
+        let dmg = BALANCE.fireDamage * morale;
+        if(e.type === 'fartHero'){
+          const angleToPlayer = Math.atan2(player.y - e.y, player.x - e.x);
+          if(Math.cos(normAngle(angleToPlayer - e.facing)) < BALANCE.critAngleCos){
+            dmg *= BALANCE.critMult;
+            player.shakeAmt = Math.max(player.shakeAmt, 8);
+            SFX.crit();
+            pushEffect('crit', 40, '菊花暴击! x5伤害!');
+          }
+        }
+        e.hp -= dmg; e.hitFlash = 8;
+        if(e.hp <= 0) killEnemy(e, this);
+      });
+      if(hitEnemy){ player.fireReach = d; break; }
+
+      if(damageBuildingsInBeam(fx, fy, dirX, dirY, d, this, hitCells)){
+        player.fireReach = d;
+        break;
+      }
+    }
+
+    for(let i = 0; i < 3; i++) spawnFireParticle3D();
+    // 每 4 次结算响一声，0.18s 的噪声段互相叠加就是持续的喷火声
+    if(this.time % 12 === 0) SFX.fire();
+  }
+
+  doStompHit(){
+    player.shakeAmt = 15;
+    const radius = BALANCE.stompRadius;
+    let killed = 0, healed = 0;
+    for(let dy = -radius; dy <= radius; dy++){
+      for(let dx = -radius; dx <= radius; dx++){
+        const mx2 = Math.floor(player.x) + dx, my2 = Math.floor(player.y) + dy;
+        if(mx2 < 0 || my2 < 0 || mx2 >= MAP || my2 >= MAP) continue;
+        const ci = my2 * MAP + mx2;
+        if(map[ci] === 1 && buildDying[ci] < 0 && dist2(player.x, player.y, mx2 + 0.5, my2 + 0.5) < radius){
+          buildHP[ci] -= BALANCE.stompBuildDamage;
+          if(buildHP[ci] <= 0){
+            healed += destroyBuilding(ci, this);
+            killed++;
+          }
+        }
+      }
+    }
+    reportDestroyed(killed, healed);
+    enemies.forEach(e => {
+      if(!e.alive) return;
+      if(e.type === 'soldier') return; // 打工人是队友
+      if(dist2(player.x, player.y, e.x, e.y) < radius && !e.onRoof && !e.flying){
+        e.hp -= BALANCE.stompDamage; e.hitFlash = 10;
+        if(e.hp <= 0) killEnemy(e, this);
+      }
+    });
+  }
+
+  updateEnemy(e){
+    if(!e.alive){ e.deathTimer--; return; }
+    if(e.hitFlash > 0) e.hitFlash--;
+    if(e.tauntTimer > 0) e.tauntTimer--;
+    const dx = player.x - e.x, dy = player.y - e.y;
+    const d = Math.hypot(dx, dy);
+    const toPlayer = Math.atan2(dy, dx);
+    if(e.type === 'fartHero'){
+      // 转身有延迟，玩家绕圈就能咬到它背后打菊花暴击
+      const diff = normAngle(toPlayer - e.facing);
+      e.facing = normAngle(e.facing + clamp(diff, -BALANCE.fartTurnRate, BALANCE.fartTurnRate));
+    }else if(e.type !== 'soldier'){
+      e.facing = toPlayer;
+    }
+    e.bobPhase += 0.05;
+    if(e.type === 'helicopter') e.z = 5 + Math.sin(e.bobPhase) * 0.5;
+    if(d > BALANCE.enemyDespawnDist){
+      // 脱离视野范围：原地淡出缩小离场，而不是凭空消失。
+      // deathTimer 从 0 递减到 -20，syncEntityMeshes 会据此做缩小淡出动画。
+      e.alive = false; e.deathTimer = 0;
+      return;
+    }
+
+    // 脚下的楼塌了就摔到地面，落地后可以被踩踏命中
+    if(e.onRoof){
+      const ci = Math.floor(e.y) * MAP + Math.floor(e.x);
+      if(map[ci] !== 1 || buildDying[ci] >= 0){
+        e.onRoof = false;
+        e.z = 0;
+        pushEffect('kill', 40, '老板摔下来了!');
+      }
+    }
+
+    const startX = e.x, startY = e.y;
+    if(!e.onRoof && e.speed > 0){
+      // 打工人是队友，不跟踪玩家，随机巡逻
+      if(e.type === 'soldier'){
+        const beforeX = e.x, beforeY = e.y;
+        if(e.patrolAngle === undefined) e.patrolAngle = rand(0, Math.PI * 2);
+        if(e.patrolTimer === undefined) e.patrolTimer = randInt(100, 260);
+        if(--e.patrolTimer <= 0){
+          e.patrolAngle = rand(0, Math.PI * 2);
+          e.patrolTimer = randInt(100, 260);
+        }
+        // 巡逻沿墙找空位，不追踪玩家，也不在一个墙角反复原地转身。
+        for(const turn of [0, 0.65, -0.65, 1.3, -1.3, Math.PI]){
+          const angle = e.patrolAngle + turn;
+          const nx = e.x + Math.cos(angle) * e.speed * 0.5;
+          const ny = e.y + Math.sin(angle) * e.speed * 0.5;
+          if(!canOccupy(nx, ny, 0.22)) continue;
+          e.x = nx; e.y = ny; e.patrolAngle = angle;
+          const diff = normAngle(angle - e.facing);
+          e.facing = normAngle(e.facing + clamp(diff, -0.08, 0.08));
+          break;
+        }
+        e.walkSpeed = dist2(beforeX, beforeY, e.x, e.y);
+        e.workerState = isWorkerCheering(e) ? 'cheer' : 'patrol';
+      }else{
+        const keepDist = e.type === 'tank' ? 6 : e.type === 'fartHero' ? 3 : 2;
+        if(d > keepDist + 0.5){
+          // 沿墙滑动：撞墙时按递增角度试探，选第一个能前进且最接近目标的方向，
+          // 比原来固定偏 0.8 弧度更能绕开街角，避免卡住。
+          const offsets = [0, 0.8, -0.8, 1.6, -1.6, 2.4, -2.4];
+          let moved = false;
+          for(const off of offsets){
+            const ang = e.facing + off;
+            const nx = e.x + Math.cos(ang) * e.speed;
+            const ny = e.y + Math.sin(ang) * e.speed;
+            const mmx = Math.floor(nx), mmy = Math.floor(ny);
+            const clear = e.flying
+              ? (!isWall(mmx, mmy) || buildHeight[mmy * MAP + mmx] * BUILD_UNIT < getEnemyHeight(e) - 0.7)
+              : canOccupy(nx, ny, e.type === 'tank' ? 0.8 : 0.35);
+            if(clear){
+              e.x = nx; e.y = ny;
+              if(off !== 0) e.facing = ang; // 撞墙后转向，避免反复撞同一面
+              moved = true;
+              break;
+            }
+          }
+          if(!moved){
+            // 全方向都堵死，随机换向避免卡死
+            e.facing = rand(0, Math.PI * 2);
+          }
+        }
+      }
+    }
+
+    e.moving = dist2(startX, startY, e.x, e.y) > 0.0001;
+    e.shootTimer--;
+    if(e.shootTimer <= 0 && d < BALANCE.enemyShootDist && e.type !== 'soldier'){
+      e.shootTimer = e.shootRate + randInt(-10, 10);
+      if(e.type === 'fartHero'){
+        projectiles.push({ x:e.x, y:e.y, z:1.5, vx:Math.cos(e.facing) * 0.06, vy:Math.sin(e.facing) * 0.06, ptype:'fart', damage:e.damage, alive:true, life:Math.ceil(d / 0.06) + 25, alpha:1 });
+      }else if(e.type === 'boss'){
+        const word = e.insultWords[e.insultTimer % e.insultWords.length];
+        e.insultTimer++;
+        e.tauntTimer = 32;
+        // 先越过脚下的屋顶再俯冲；沿途其他更高的楼依然可以挡住弹幕。
+        SFX.insult();
+        const bz = getEnemyHeight(e) + 1.85;
+        const speed = 0.05;
+        const frames = Math.max(20, d / speed);
+        let cruiseDistance = 0;
+        if(e.onRoof){
+          const sourceFloors = buildHeight[Math.floor(e.y) * MAP + Math.floor(e.x)];
+          for(let travel = 0.25; travel < d; travel += 0.25){
+            const tx = Math.floor(e.x + Math.cos(e.facing) * travel);
+            const ty = Math.floor(e.y + Math.sin(e.facing) * travel);
+            cruiseDistance = travel;
+            if(!isWall(tx, ty) || buildHeight[ty * MAP + tx] !== sourceFloors) break;
+          }
+        }
+        const cruiseFrames = Math.ceil(cruiseDistance / speed);
+        const diveFrames = Math.max(1, frames - cruiseFrames);
+        projectiles.push({ x:e.x, y:e.y, z:bz, vx:Math.cos(e.facing) * speed, vy:Math.sin(e.facing) * speed, vz:(GODZILLA_H * 0.75 - bz) / diveFrames, cruiseFrames, ptype:'insult', damage:e.damage, alive:true, life:Math.ceil(frames) + 30, alpha:1, text:word });
+      }else{
+        projectiles.push({ x:e.x, y:e.y, z:e.type === 'helicopter' ? getEnemyHeight(e) : 0.8, vx:Math.cos(e.facing) * 0.08, vy:Math.sin(e.facing) * 0.08, ptype:e.type === 'tank' ? 'shell' : 'bullet', damage:e.damage, alive:true, life:Math.ceil(d / 0.08) + 25, alpha:1 });
+      }
+    }
+  }
+
+  updateProjectile(p){
+    if(!p.alive) return;
+    p.x += p.vx; p.y += p.vy;
+    if(p.cruiseFrames > 0) p.cruiseFrames--;
+    else if(p.vz) p.z = Math.max(0.2, (p.z || 0) + p.vz);
+    p.life--;
+    if(p.life <= 0){ p.alive = false; return; }
+    p.alpha = clamp(p.life / 20, 0, 1);
+
+    // 实体不能先于挡在前面的楼接到弹道；楼顶以上的弹幕仍可掠过。
+    const cellX = Math.floor(p.x), cellY = Math.floor(p.y);
+    if(cellX < 0 || cellY < 0 || cellX >= MAP || cellY >= MAP){ p.alive = false; return; }
+    if(isWall(cellX, cellY) && (p.z || 0) < buildHeight[cellY * MAP + cellX] * BUILD_UNIT){
+      p.alive = false;
+      return;
+    }
+
+    if(dist2(player.x, player.y, p.x, p.y) < PLAYER_HIT_RADIUS && (p.z || 0) < GODZILLA_H + 0.5 && player.invincible <= 0){
+      p.alive = false;
+      const dmg = p.damage;
+      player.hp -= dmg;
+      player.invincible = 15;
+      player.damageFlash = 10;
+      player.shakeAmt = 6;
+      player.combo = 0;
+      player.comboTimer = 0;
+      SFX.hurt();
+      if(p.ptype === 'fart'){
+        player.fartDebuff = 25;
+        pushEffect('fart', 40, '被屁熏了! -' + dmg + 'HP');
+      }else if(p.ptype === 'insult'){
+        player.insultDebuff = 20;
+        player.lastInsult = p.text || '';
+        pushEffect('insult', 40, (p.text || '') + ' -' + dmg + 'HP');
+      }
+      return;
+    }
+
+    // 敌方流弹会误伤打工人。他们免疫的是玩家的火焰和踩踏，不是敌人的炮弹。
+    if((p.z || 0) < 2.15){
+      for(const e of enemies){
+        if(!e.alive || e.type !== 'soldier') continue;
+        if(dist2(e.x, e.y, p.x, p.y) >= 0.42) continue;
+        p.alive = false;
+        e.alive = false; e.deathTimer = 0;
+        SFX.worker();
+        pushEffect('worker', 40, '打工人被误伤了! 少一个人助威');
+        return;
+      }
+    }
+
+
+  }
+
+  spawnWaveEnemies(){
+    // 前 8 波按原节奏铺开，之后每 6 波多一个，上限 10——
+    // 再多就只是刷屏，压力交给 waveScale 的属性成长
+    const base = Math.min(2 + Math.floor(this.wave / 2), 6);
+    const n = Math.min(base + Math.floor(Math.max(0, this.wave - 8) / 6), 10);
+    for(let i = 0; i < n; i++){
+      const pos = getSpawnPos(15);
+      if(!pos) continue;
+      const r = Math.random();
+      if(this.wave < 3) spawnEnemy('soldier', pos.x, pos.y);
+      else if(this.wave < 6){
+        if(r < 0.4) spawnEnemy('soldier', pos.x, pos.y);
+        else if(r < 0.7) spawnEnemy('tank', pos.x, pos.y);
+        else spawnEnemy('helicopter', pos.x, pos.y);
+      }else if(this.wave < 12){
+        if(r < 0.25) spawnEnemy('soldier', pos.x, pos.y);
+        else if(r < 0.45) spawnEnemy('tank', pos.x, pos.y);
+        else if(r < 0.65) spawnEnemy('helicopter', pos.x, pos.y);
+        else spawnEnemy('fartHero', pos.x, pos.y);
+      }else{
+        // 高波次不再刷打工人，编制换成火力
+        if(r < 0.3) spawnEnemy('tank', pos.x, pos.y);
+        else if(r < 0.6) spawnEnemy('helicopter', pos.x, pos.y);
+        else spawnEnemy('fartHero', pos.x, pos.y);
+      }
+    }
+    if(this.wave >= 3 && Math.random() < 0.3){
+      const pos = getSpawnPos(12);
+      if(pos) spawnEnemy('fartHero', pos.x, pos.y);
+    }
+  }
+
+  addScore(pts){
+    player.combo++;
+    // 附近每个打工人多给 0.5 秒连击窗口
+    player.comboTimer = BALANCE.comboBaseWindow + player.cheerCount * BALANCE.comboCheerBonus;
+    player.score += pts * Math.min(player.combo, 10);
+  }
+
+  draw(){
+    render3D();
+    drawHUD();
+    effects.forEach((e, idx) => {
+      X.fillStyle = e.type === 'crit' ? '#ff0' : e.type === 'heal' ? '#4f4' : e.type === 'destroy' ? '#ff8' : e.type === 'boss' ? '#f44' : '#fff';
+      X.font = 'bold 18px Courier New';
+      X.textAlign = 'center';
+      X.fillText(e.text, H.width / 2, H.height * 0.25 - idx * 25 + (40 - e.timer) * 0.5);
+      X.textAlign = 'left';
+    });
+  }
+}
+
+// ===== INPUT =====
+const input = { w:false, a:false, s:false, d:false, shift:false };
+const mouseScreen = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+
+document.addEventListener('keydown', e => {
+  const k = e.key.toLowerCase();
+  if(k === 'p' || k === 'escape'){ e.preventDefault(); if(!e.repeat) togglePause(); return; }
+  if(k === 'm'){ e.preventDefault(); if(!e.repeat) toggleMute(); return; }
+  if(!game || !game.running || paused) return;
+  if(k === 'w' || k === 'arrowup'){ input.w = true; e.preventDefault(); }
+  if(k === 'a' || k === 'arrowleft'){ input.a = true; e.preventDefault(); }
+  if(k === 's' || k === 'arrowdown'){ input.s = true; e.preventDefault(); }
+  if(k === 'd' || k === 'arrowright'){ input.d = true; e.preventDefault(); }
+  if(k === 'shift') input.shift = true;
+  if(k === ' ' && game && game.running && !paused){
+    e.preventDefault();
+    triggerStomp();
+  }
+});
+document.addEventListener('keyup', e => {
+  const k = e.key.toLowerCase();
+  if(k === 'w' || k === 'arrowup') input.w = false;
+  if(k === 'a' || k === 'arrowleft') input.a = false;
+  if(k === 's' || k === 'arrowdown') input.s = false;
+  if(k === 'd' || k === 'arrowright') input.d = false;
+  if(k === 'shift') input.shift = false;
+});
+
+function updateMouseNDC(e){
+  mouseScreen.x = e.clientX;
+  mouseScreen.y = e.clientY;
+  mouseNDC.x = (e.clientX / window.innerWidth) * 2 - 1;
+  mouseNDC.y = -(e.clientY / window.innerHeight) * 2 + 1;
+}
+document.addEventListener('mousemove', updateMouseNDC);
+C.addEventListener('mousemove', updateMouseNDC);
+C.addEventListener('contextmenu', e => e.preventDefault());
+
+// ===== 触屏 =====
+// 左半屏虚拟摇杆负责移动，右半屏拖动瞄准、轻点踩踏。
+// 摇杆输出的是相对镜头的方向，和 WASD 走同一条路径。
+const touchState = {
+  active: false,
+  moveId: null, originX: 0, originY: 0, dx: 0, dy: 0,
+  aimId: null, tapStart: 0, tapMoved: false
+};
+const JOY_RADIUS = 60;
+const JOY_DEADZONE = 0.18;
+
+function isTouchDevice(){
+  return 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+}
+
+function handleTouchStart(ev){
+  if(!game || !game.running || paused) return;
+  touchState.active = true;
+  for(const t of ev.changedTouches){
+    if(t.clientX < window.innerWidth / 2){
+      if(touchState.moveId !== null) continue;
+      touchState.moveId = t.identifier;
+      touchState.originX = t.clientX;
+      touchState.originY = t.clientY;
+      touchState.dx = touchState.dy = 0;
+    }else{
+      if(touchState.aimId !== null) continue;
+      touchState.aimId = t.identifier;
+      touchState.tapStart = Date.now();
+      touchState.tapMoved = false;
+      updateMouseNDC(t);
+    }
+  }
+  ev.preventDefault();
+}
+
+function handleTouchMove(ev){
+  if(!game || !game.running || paused) return;
+  for(const t of ev.changedTouches){
+    if(t.identifier === touchState.moveId){
+      touchState.dx = clamp((t.clientX - touchState.originX) / JOY_RADIUS, -1, 1);
+      touchState.dy = clamp((t.clientY - touchState.originY) / JOY_RADIUS, -1, 1);
+    }else if(t.identifier === touchState.aimId){
+      touchState.tapMoved = true;
+      updateMouseNDC(t);
+    }
+  }
+  ev.preventDefault();
+}
+
+function handleTouchEnd(ev){
+  for(const t of ev.changedTouches){
+    if(t.identifier === touchState.moveId){
+      touchState.moveId = null;
+      touchState.dx = touchState.dy = 0;
+    }else if(t.identifier === touchState.aimId){
+      // 右半屏短促轻点 = 踩踏
+      const quickTap = !touchState.tapMoved && Date.now() - touchState.tapStart < 250;
+      if(quickTap) triggerStomp();
+      touchState.aimId = null;
+    }
+  }
+  ev.preventDefault();
+}
+
+C.addEventListener('touchstart', handleTouchStart, { passive: false });
+C.addEventListener('touchmove', handleTouchMove, { passive: false });
+C.addEventListener('touchend', handleTouchEnd, { passive: false });
+C.addEventListener('touchcancel', handleTouchCancel, { passive: false });
+
+function handleTouchCancel(ev){
+  for(const t of ev.changedTouches){
+    if(t.identifier === touchState.moveId){
+      touchState.moveId = null;
+      touchState.dx = touchState.dy = 0;
+    }
+    if(t.identifier === touchState.aimId) touchState.aimId = null;
+  }
+  touchState.tapMoved = true;
+  ev.preventDefault();
+}
+
+function resetInputState(){
+  input.w = input.a = input.s = input.d = input.shift = false;
+  touchState.moveId = touchState.aimId = null;
+  touchState.dx = touchState.dy = 0;
+  touchState.tapStart = 0;
+  touchState.tapMoved = true;
+}
+
+function suspendGame(){
+  resetInputState();
+  resetFrameClock();
+  if(game && game.running && !paused) togglePause();
+}
+window.addEventListener('blur', suspendGame);
+document.addEventListener('visibilitychange', () => { if(document.hidden) suspendGame(); });
+
+function drawJoystick(){
+  if(touchState.moveId === null) return;
+  X.strokeStyle = 'rgba(255,255,255,0.35)';
+  X.lineWidth = 2;
+  X.beginPath();
+  X.arc(touchState.originX, touchState.originY, JOY_RADIUS, 0, Math.PI * 2);
+  X.stroke();
+  X.fillStyle = 'rgba(255,170,0,0.55)';
+  X.beginPath();
+  X.arc(touchState.originX + touchState.dx * JOY_RADIUS, touchState.originY + touchState.dy * JOY_RADIUS, 22, 0, Math.PI * 2);
+  X.fill();
+}
+
+// ===== LOOP =====
+function drawPauseOverlay(){
+  const w = H.width, h = H.height;
+  X.fillStyle = 'rgba(0,0,0,0.55)';
+  X.fillRect(0, 0, w, h);
+  X.fillStyle = '#ffaa00';
+  X.font = 'bold 42px Courier New';
+  X.textAlign = 'center';
+  X.fillText('已暂停', w / 2, h / 2 - 10);
+  X.fillStyle = '#aaa';
+  X.font = '15px Courier New';
+  X.fillText(w < 600 ? '点「继续」恢复游戏' : '按 P 或 Esc 继续', w / 2, h / 2 + 28);
+  X.textAlign = 'left';
+}
+
+const FIXED_STEP_MS = 1000 / 60;
+let lastFrameTime = null;
+let simulationAccumulator = 0;
+function resetFrameClock(){
+  lastFrameTime = null;
+  simulationAccumulator = 0;
+}
+
+function stepGameFrame(timestamp){
+  if(lastFrameTime === null) lastFrameTime = timestamp;
+  const elapsed = Math.min(100, Math.max(0, timestamp - lastFrameTime));
+  lastFrameTime = timestamp;
+  if(!game || !game.running || paused){ simulationAccumulator = 0; return 0; }
+  simulationAccumulator += elapsed;
+  let steps = 0;
+  while(simulationAccumulator + 1e-6 >= FIXED_STEP_MS && game.running){
+    game.update();
+    simulationAccumulator -= FIXED_STEP_MS;
+    steps++;
+  }
+  return steps;
+}
+
+function loop(timestamp = 0){
+  stepGameFrame(timestamp);
+  if(game && game.running){
+    if(paused){
+      // 不推进游戏状态，但每帧要先重画 HUD 把画布清掉，
+      // 否则半透明遮罩会一帧帧叠上去，十几帧后就成纯黑了
+      drawHUD();
+      drawPauseOverlay();
+    }else{
+      game.draw();
+    }
+  }else if(game && !game.running){
+    const isRecord = saveHighScore(player.score);
+    document.getElementById('final-score').innerHTML =
+      `最终分数: ${player.score}  |  波次: ${game.wave}<br>` +
+      (isRecord ? '<span style="color:#4f4">新纪录!</span>' : `历史最高: ${highScore}`);
+    document.getElementById('gameover-screen').classList.remove('hidden');
+    document.getElementById('touch-controls').classList.add('hidden');
+    document.getElementById('game-status').textContent = `游戏结束，分数 ${player.score}，波次 ${game.wave}`;
+    game = null;
+  }
+  requestAnimationFrame(loop);
+}
+
+function triggerStomp(){
+  if(!game || !game.running || paused || player.stompCD > 0) return;
+  player.stompFrame = 10;
+  player.stompCD = 120;
+  SFX.stomp();
+}
+
+function togglePause(){
+  if(!game || !game.running) return;
+  paused = !paused;
+  document.getElementById('pause-button').textContent = paused ? '继续' : '暂停';
+  document.getElementById('game-status').textContent = paused ? '游戏已暂停' : '游戏继续';
+  resetInputState();
+  resetFrameClock();
+  if(paused){
+    // 暂停时松开所有方向键，否则恢复后会保持上一次的移动状态
+    if(audio.ctx && audio.ctx.state === 'running') audio.ctx.suspend();
+  }else{
+    if(audio.ctx && audio.ctx.state === 'suspended') audio.ctx.resume();
+    game.draw();
+  }
+}
+
+function startGame(){
+  document.getElementById('start-screen').classList.add('hidden');
+  document.getElementById('gameover-screen').classList.add('hidden');
+  initAudio();                 // 必须在用户手势里创建，否则被浏览器自动播放策略拦掉
+  if(audio.ctx && audio.ctx.state === 'suspended') audio.ctx.resume();
+  paused = false;
+  document.getElementById('touch-controls').classList.remove('hidden');
+  document.getElementById('pause-button').textContent = '暂停';
+  document.getElementById('mute-button').textContent = audio.muted ? '开启声音' : '静音';
+  document.getElementById('game-status').textContent = '游戏开始。打工人是友军，靠近可获得助威。';
+  game = new Game();
+}
+
+loadHighScore();
+initThree();
+loop();
+</script>
+</body>
+</html>

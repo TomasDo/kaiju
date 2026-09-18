@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>角色模型 · 视觉核验</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#e9eee9;color:#263a36;font:13px/1.5 -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif}#renderer{position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none;z-index:0}main{position:relative;z-index:1;max-width:1600px;margin:auto;padding:18px 22px 12px}header{display:flex;align-items:center;justify-content:space-between;gap:20px;margin-bottom:16px}h1{font-size:22px;letter-spacing:-.6px;margin:0 0 3px;font-weight:650}header p{margin:0;font-size:11px;color:#63756e}.controls{display:flex;gap:5px;align-items:center;flex-wrap:wrap;justify-content:flex-end}button,a{color:inherit;font:inherit;font-size:11px;white-space:nowrap}button{cursor:pointer;border:1px solid #bfcec3;background:#f7faf7;border-radius:6px;padding:7px 12px}button:hover{background:#dfe8df}button[aria-pressed=true]{background:#314e42;border-color:#314e42;color:#fff}a{margin-left:8px;text-decoration:none}a:hover{text-decoration:underline}.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:13px}.card{border:1px solid #cbd6cc;border-radius:10px;overflow:hidden;box-shadow:0 3px 10px #2d493509;background:transparent}.card h2{display:flex;justify-content:space-between;align-items:center;gap:5px;font-size:13px;font-weight:600;margin:0;padding:10px 13px 7px;background:#f5f8f3;line-height:1.3}.tag{font-size:10px;letter-spacing:.3px;color:#76867a;font-weight:400}.viewport{height:248px;position:relative}.note{margin:0;min-height:49px;padding:8px 13px 10px;background:#f5f8f3;font-size:10px;line-height:1.55;color:#637469}.note strong{font-weight:500;color:#405b4b}footer{display:flex;justify-content:space-between;gap:15px;margin-top:11px;font-size:10px;color:#6a7b70}.error{padding:30px;background:#fff0e7;color:#8b3f2d;border:1px solid #dba28b;margin-top:20px;white-space:pre-wrap}#status{font-variant-numeric:tabular-nums}@media(min-width:1500px){.viewport{height:300px}}@media(max-width:920px){header{align-items:flex-start;flex-direction:column;gap:9px}.controls{justify-content:flex-start}.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.viewport{height:280px}}@media(max-width:500px){main{padding:14px 12px}.grid{gap:9px}.viewport{height:220px}.card h2{padding:9px;font-size:12px}.tag{display:none}.note{padding:7px 9px;font-size:10px;min-height:63px}footer{flex-direction:column;gap:3px}.controls{gap:4px}button{padding:6px 9px}}
+</style>
+<script src="../vendor/three.min.js"></script>
+<script src="../boss-model.js"></script>
+<script src="../unit-visual.js"></script>
+<script src="../kaiju-visual.js"></script>
+</head>
+<body>
+<canvas id="renderer" aria-hidden="true"></canvas>
+<main>
+  <header>
+    <div><h1>角色模型 · 视觉核验</h1><p>加载游戏真实模型模块 · 各卡独立取景，仅调整展示构图，游戏尺寸与命中规则保持不变</p></div>
+    <div class="controls" aria-label="固定视角与动画控制">
+      <button data-view="front" aria-pressed="true">正面 3/4</button>
+      <button data-view="back" aria-pressed="false">背面 3/4</button>
+      <button data-view="side" aria-pressed="false">侧面</button>
+      <button id="motion" aria-pressed="false">动作：静止</button>
+      <a href="../kaiju-destroyer.html">返回游戏 ↗</a>
+    </div>
+  </header>
+  <div class="grid" id="grid"></div>
+  <footer><span>检查点：脸部与工服 / 友军体型 / 载具轮廓 / 背部弱点 / 哥斯拉背鳍、颈部与尾巴连接</span><span id="status">正在创建模型…</span></footer>
+</main>
+<script>
+(() => {
+  const grid = document.getElementById('grid');
+  const status = document.getElementById('status');
+  const definitions = [
+    {type:'soldier',variant:0,title:'打工人 · 蓝衬衫',tag:'友军 / 巡逻',note:'<strong>普通同事的身高与轮廓</strong><br>松领带、工牌、公文包；游戏内约 2.0 高。'},
+    {type:'soldier',variant:1,title:'打工人 · 眼镜同事',tag:'友军 / 助威',note:'<strong>眼镜与米白衬衫</strong><br>动作模式下抬手助威；不会主动攻击玩家。'},
+    {type:'soldier',variant:2,title:'打工人 · 快走',tag:'友军 / 避险',note:'<strong>独立腿部与提包手臂</strong><br>动作模式下展示危急快走、前倾与摆臂。'},
+    {type:'tank',title:'坦克',tag:'敌方 / 地面',note:'<strong>完整履带、轮组、炮塔与炮管</strong><br>车灯、检修口、发动机栅格与天线。'},
+    {type:'helicopter',title:'直升机',tag:'敌方 / 空中',note:'<strong>驾驶舱、尾梁、滑橇与双旋翼</strong><br>动作模式下主旋翼和尾旋翼同步转动。'},
+    {type:'fartHero',title:'放屁侠',tag:'敌方 / 绕后暴击',note:'<strong>绿披风与橙色背部排气芯</strong><br>切换背面查看弱点；正面保留制服徽记。'},
+    {type:'boss',title:'西装老板',tag:'敌方 / 楼顶',note:'<strong>衬衫、领带、西装与公文包</strong><br>独立取景展示细节；游戏内仍为原比例。'},
+    {type:'kaiju',title:'哥斯拉',tag:'玩家 / 连续轮廓',note:'<strong>外露三列背鳍、连续颈部与渐细尾巴</strong><br>切换侧面检查连接；喷火口与脚步锚点未改。'}
+  ];
+  let renderer;
+  try{
+    renderer = new THREE.WebGLRenderer({canvas:document.getElementById('renderer'), antialias:true, alpha:true});
+  }catch(error){
+    status.textContent='WebGL 不可用';
+    const message=document.createElement('p');message.className='error';message.textContent='无法创建 WebGL 场景：'+error.message;grid.after(message);return;
+  }
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.outputColorSpace=THREE.SRGBColorSpace;
+  renderer.toneMapping=THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure=1.04;
+  renderer.shadowMap.enabled=true;
+  renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+  renderer.autoClear=false;
+  let view='front', motion=false, elapsed=1.20, lastFrame=0;
+  const views={front:new THREE.Vector3(0.64,0.30,1),back:new THREE.Vector3(-0.64,0.30,-1),side:new THREE.Vector3(1,0.23,0.02)};
+  const entries=[];
+
+  for(const definition of definitions){
+    const card=document.createElement('article');card.className='card';
+    card.innerHTML='<h2>'+definition.title+'<span class="tag">'+definition.tag+'</span></h2><div class="viewport" role="img" aria-label="'+definition.title+' 三维模型"></div><p class="note">'+definition.note+'</p>';
+    grid.appendChild(card);
+    const scene=new THREE.Scene();scene.background=new THREE.Color(0xe3e9df);
+    scene.add(new THREE.HemisphereLight(0xf0f6ff,0xacaf95,2.1));
+    const model=definition.type==='kaiju' ? KaijuVisual.create() : definition.type==='boss' ? BossVisual.create() : UnitVisual.create(definition.type,{variant:definition.variant});
+    scene.add(model);
+    const bounds=new THREE.Box3().setFromObject(model), size=bounds.getSize(new THREE.Vector3()), center=bounds.getCenter(new THREE.Vector3());
+    const radius=size.length()*0.5;
+    const key=new THREE.DirectionalLight(0xffefd6,3.1);
+    key.position.copy(center).add(new THREE.Vector3(-radius*2,radius*3,radius*3));
+    key.target.position.copy(center);scene.add(key,key.target);key.castShadow=true;
+    key.shadow.mapSize.set(512,512);key.shadow.camera.left=key.shadow.camera.bottom=-radius*1.3;key.shadow.camera.right=key.shadow.camera.top=radius*1.3;
+    key.shadow.camera.near=0.02;key.shadow.camera.far=radius*10;key.shadow.normalBias=radius*0.009;
+    const fill=new THREE.DirectionalLight(0xd1e5ed,1.45);fill.position.copy(center).add(new THREE.Vector3(radius*2,radius,-radius*2));scene.add(fill);
+    const floor=new THREE.Mesh(new THREE.PlaneGeometry(radius*8,radius*8),new THREE.ShadowMaterial({color:0x4d6955,opacity:0.16}));
+    floor.rotation.x=-Math.PI/2;floor.position.y=bounds.min.y-0.01;floor.receiveShadow=true;scene.add(floor);
+    const camera=new THREE.OrthographicCamera(-1,1,1,-1,0.01,radius*20);
+    const corners=[];for(const x of [bounds.min.x,bounds.max.x]) for(const y of [bounds.min.y,bounds.max.y]) for(const z of [bounds.min.z,bounds.max.z]) corners.push(new THREE.Vector3(x,y,z));
+    let count=0;model.traverse(part=>{if(part.isMesh)count++;});
+    entries.push({definition,element:card.querySelector('.viewport'),scene,model,camera,center,radius,corners,count});
+  }
+
+  function pose(entry,time){
+    const {definition,model}=entry;
+    if(definition.type==='boss') BossVisual.animate(model,time,motion?0.85:0);
+    else if(definition.type==='kaiju'){
+      const stride=motion?Math.sin(time*6.5):0;
+      for(const {side,leg} of model.userData.legs){
+        const phase=stride*side;
+        leg.rotation.x=phase*0.34;leg.rotation.z=leg.userData.baseZRot+phase*0.08;
+        leg.position.y=2.28+Math.abs(stride)*0.1;leg.position.z=0.35-phase*0.12;
+        for(const foot of leg.children){if(foot.userData.baseY===undefined)continue;
+          foot.position.y=foot.userData.baseY+Math.max(0,phase)*0.28;
+          foot.position.z=foot.userData.baseZ+Math.max(0,phase)*0.16;
+          foot.rotation.x=-leg.rotation.x*0.35;
+        }
+      }
+    }else UnitVisual.animate(model,{time,moving:motion&&definition.variant!==1,cheering:motion&&definition.type==='soldier'&&definition.variant===1,panic:definition.type==='soldier'&&definition.variant===2});
+  }
+
+  function render(now){
+    const delta=lastFrame?Math.min(0.05,(now-lastFrame)/1000):0;lastFrame=now;if(motion)elapsed+=delta;
+    const width=window.innerWidth,height=window.innerHeight;
+    const canvas=renderer.domElement;
+    if(canvas.width!==Math.floor(width*renderer.getPixelRatio())||canvas.height!==Math.floor(height*renderer.getPixelRatio()))renderer.setSize(width,height,false);
+    renderer.setScissorTest(false);renderer.setClearColor(0x000000,0);renderer.clear();renderer.setScissorTest(true);
+    let visible=0;
+    for(const entry of entries){
+      const rect=entry.element.getBoundingClientRect();
+      if(rect.bottom<=0||rect.top>=height||rect.right<=0||rect.left>=width)continue;
+      pose(entry,elapsed);
+      const {camera,center,radius}=entry;
+      camera.position.copy(center).addScaledVector(views[view].clone().normalize(),radius*5);
+      camera.lookAt(center);camera.updateMatrixWorld(true);
+      const projected=entry.corners.map(point=>point.clone().applyMatrix4(camera.matrixWorldInverse));
+      const spanX=Math.max(...projected.map(p=>p.x))-Math.min(...projected.map(p=>p.x));
+      const spanY=Math.max(...projected.map(p=>p.y))-Math.min(...projected.map(p=>p.y));
+      const aspect=rect.width/rect.height;
+      const halfHeight=Math.max(spanY*0.5,spanX/aspect*0.5)*1.12;
+      camera.left=-halfHeight*aspect;camera.right=halfHeight*aspect;camera.top=halfHeight;camera.bottom=-halfHeight;camera.updateProjectionMatrix();
+      renderer.setViewport(rect.left,height-rect.bottom,rect.width,rect.height);renderer.setScissor(rect.left,height-rect.bottom,rect.width,rect.height);
+      renderer.setClearColor(0xe3e9df,1);renderer.clear();renderer.render(entry.scene,camera);visible++;
+    }
+    status.textContent='单渲染器 · '+visible+' / '+entries.length+' 视图 · 模型共 '+entries.reduce((sum,entry)=>sum+entry.count,0)+' Mesh';
+    requestAnimationFrame(render);
+  }
+  document.querySelectorAll('[data-view]').forEach(button=>button.addEventListener('click',()=>{
+    view=button.dataset.view;document.querySelectorAll('[data-view]').forEach(other=>other.setAttribute('aria-pressed',String(other===button)));
+  }));
+  document.getElementById('motion').addEventListener('click',event=>{
+    motion=!motion;event.currentTarget.setAttribute('aria-pressed',String(motion));event.currentTarget.textContent='动作：'+(motion?'播放':'静止');
+  });
+  window.addEventListener('pagehide',()=>{
+    for(const entry of entries){
+      if(entry.definition.type==='boss')BossVisual.dispose(entry.model);
+      else if(entry.definition.type==='kaiju')KaijuVisual.dispose(entry.model);
+      else UnitVisual.dispose(entry.model);
+    }
+    renderer.dispose();
+  },{once:true});
+  requestAnimationFrame(render);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,66 @@
+2026-09-18 local validation
+
+tests/gameplay.test.cjs
+PASS 火焰只命中有限前方，拒绝背后、超射程和侧面目标
+PASS 近处敌人先挡火，与生成顺序无关
+PASS 每次喷火每栋楼只结算一次，完整近楼挡住后方，身后楼不受伤
+PASS 建筑遮挡身后敌人，心态减益按比例作用于火焰伤害
+PASS 火焰高度取目标距离，远处低楼掠过而高楼可命中
+PASS 火焰射程末端可命中高楼，越过射程即不伤害
+PASS 踩踏只伤地面敌人，打工人和直升机及楼顶老板免疫
+PASS 打工人随机巡逻、不主动攻击、免疫玩家火焰，附近助威人数封顶
+PASS 完整建筑挡住同事助威，建筑倒塌后恢复可见助威
+PASS 敌方流弹会误伤打工人，但同一颗弹只结算一个目标
+PASS 生存得分不制造或延长战斗连击，同事按人数增加窗口
+PASS 老板弹幕覆盖射击距离，伤害随波次成长
+PASS 老板弹幕先离开自己的宽屋顶，再俯冲，沿途其他高楼仍可挡住
+PASS 普通敌人弹道寿命覆盖实际射击距离
+PASS 斜走不会加速，玩家按体积撞墙并可沿墙滑动
+PASS 近距离火焰在生成当帧更新后仍有可见粒子
+PASS 暂停和静音忽略键盘自动重复，暂停清除全部移动输入
+PASS 重开清除键盘与触屏残留，取消触摸不触发踩踏
+PASS 失去窗口焦点释放输入并自动暂停
+PASS 60Hz与144Hz推进相同模拟时间，长停顿限制补帧，暂停不推进
+PASS 单独重画不推进倒塌或粒子寿命，模拟更新负责清理倒塌状态
+PASS 触屏操作按钮随开始、暂停、静音和踩踏状态同步
+PASS 结束隐藏操作按钮，重开恢复按钮并保留静音偏好
+23 gameplay checks passed; 0 failed.
+
+tests/boss-visual.test.cjs
+PASS 共享几何体，独立受击材质，模型边界和顶点有效
+PASS 训话动作改变手臂和口型，相同时间保持相同姿态
+PASS 楼顶生成、弹幕联动与楼塌落地
+PASS 一名 Boss 受击不染红其他 Boss，结束后恢复原色
+PASS 击杀掉落、缩小离场、释放和重新开局
+5 boss visual regression checks passed.
+
+tests/city-visual.test.cjs
+PASS 900 building cells, 93232 triangles, {"geometries":76,"materials":6,"templateTriangles":9944}
+PASS destruction preserves shared geometry, material and texture; collapse remains grounded
+PASS 1 ground draw call, 26694 triangles, 890 safe road markings; ground resources disposed
+PASS restarting same city reuses all templates without growth
+PASS all four interior facades remain closed and detailed after adjacent destruction
+PASS 64 random city restarts: cache bounded at 122/144 geometry templates, 8/8 materials
+
+tests/unit-visual.test.cjs
+soldier: 16 meshes, 3370 triangles; bounds 0.930 × 2.009 × 0.451
+tank: 9 meshes, 2056 triangles; bounds 1.740 × 1.353 × 2.210
+helicopter: 9 meshes, 1456 triangles; bounds 2.940 × 1.183 × 3.065
+fartHero: 19 meshes, 3174 triangles; bounds 1.031 × 1.800 × 0.751
+PASS 全部模型的顶点有效、绘制调用有界、单位比例稳定
+PASS 同类共享几何但受击材质彼此独立，释放幂等且不释放共享几何
+PASS 行走摆腿、助威抬手、快走与复位是确定姿态
+PASS 直升机双旋翼和英雄披风独立动画，弱点留在背面
+PASS 三个工服变体缓存有界且无未知单位静默回退
+5 unit visual regression checks passed.
+
+tests/kaiju-visual.test.cjs
+PASS kaiju geometry, preserved bounds/mouth, existing leg animation contract, shared geometry and isolated materials
+16 meshes, 24567 triangles
+bounds 3.860 × 6.170 × 8.620
+PASS inline script syntax: kaiju-destroyer.html
+PASS inline script syntax: boss-preview.html
+PASS inline script syntax: tests/scene-check.html
+PASS inline script syntax: tests/character-check.html
+PASS module syntax
+PASS optional local server: entry, 7 assets/pages, 404 and HEAD on loopback

@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>西装老板 · 角色展示</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#eeede8;color:#243144;font-family:-apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif}
+main{min-height:100svh;display:grid;grid-template-columns:310px 1fr}aside{padding:42px 34px;display:flex;flex-direction:column;border-right:1px solid #d9dad5;z-index:1}
+a{color:inherit;text-decoration:none;font-size:13px}a:hover{text-decoration:underline}header{margin:auto 0}.eyebrow{font-size:11px;letter-spacing:3px;color:#7b817f;margin-bottom:20px}h1{font-size:40px;letter-spacing:-1.8px;font-weight:650;margin:0 0 15px}blockquote{font-size:15px;color:#7e5546;margin:0 0 34px;line-height:1.7}p{font-size:13px;line-height:2;color:#747b7c;margin:0}.details{display:grid;gap:17px;margin-top:30px}.detail{border-top:1px solid #d6d8d2;padding-top:13px;font-size:12px;color:#747b7c}.detail strong{display:block;font-size:13px;color:#344154;margin-bottom:4px;font-weight:550}.number{font-size:10px;letter-spacing:2px;color:#969b94;margin-top:40px}
+.viewer{position:relative;min-width:0;height:100svh;overflow:hidden}canvas{display:block;width:100%;height:100%;touch-action:none;cursor:grab}canvas:active{cursor:grabbing}.label{position:absolute;top:30px;left:30px;font-size:10px;letter-spacing:2px;color:#7a8484;pointer-events:none}.label span{display:inline-block;width:6px;height:6px;background:#8b9b85;border-radius:50%;margin-right:8px}.help{position:absolute;bottom:96px;width:100%;text-align:center;font-size:11px;color:#868a84;pointer-events:none}
+.controls{position:absolute;bottom:32px;left:50%;transform:translateX(-50%);display:flex;gap:6px;align-items:center;background:rgba(255,255,252,.8);padding:7px;border:1px solid #d4d7d0;border-radius:12px;white-space:nowrap;box-shadow:0 6px 30px #26362d08}button{font:inherit;cursor:pointer;font-size:12px;border:0;border-radius:7px;background:transparent;color:#657073;padding:10px 15px}button:hover{background:#e8eae3}button[aria-pressed=true]{background:#2a3a4c;color:#fff}.divider{width:1px;height:20px;background:#d8dcd5;margin:0 3px}.error{position:absolute;inset:30%;text-align:center;line-height:1.8;color:#8b3b31}
+@media(max-width:800px){main{display:block}aside{padding:22px 25px 0;border:0}header{margin:25px 0 0}h1{font-size:30px;margin-bottom:8px}.eyebrow{margin-bottom:9px;font-size:9px}blockquote{font-size:12px;margin:0}.details,aside p,.number{display:none}.viewer{height:calc(100svh - 177px);min-height:390px}.label{top:14px;left:25px;font-size:9px}.controls{bottom:20px}.help{bottom:79px}button{padding:9px 11px}}
+@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto}}
+</style>
+<script src="vendor/three.min.js"></script>
+<script src="boss-model.js"></script>
+</head>
+<body>
+<main>
+  <aside>
+    <a href="kaiju-destroyer.html">← 返回游戏</a>
+    <header>
+      <div class="eyebrow">KAIJU DESTROYER / BOSS 01</div>
+      <h1>西装老板</h1>
+      <blockquote>“KPI 不达标！”</blockquote>
+      <p>一丝不苟的衣装，颐指气使的神情。<br>熟悉的楼顶对手，换上全新造型。</p>
+      <div class="details">
+        <div class="detail"><strong>01 / 轮廓与表情</strong>后梳发束、眉弓、方框眼镜与下颌</div>
+        <div class="detail"><strong>02 / 服装与配饰</strong>细条纹西装、缎面驳领与酒红领带</div>
+        <div class="detail"><strong>03 / 性格与动作</strong>抬手训话，公文包随呼吸轻晃</div>
+      </div>
+    </header>
+    <div class="number">CHARACTER STUDY — 2026.09</div>
+  </aside>
+  <section class="viewer" aria-label="可旋转的 Boss 三维模型">
+    <canvas id="preview" tabindex="0" aria-label="拖动旋转角色，滚轮缩放；键盘左右旋转，上下调整高度，加减缩放"></canvas>
+    <div class="label"><span></span>3D 角色展示</div>
+    <div class="help">拖动旋转 · 滚轮缩放 · 点击切换动作</div>
+    <div class="controls" aria-label="角色展示控制">
+      <button id="idle" type="button" aria-pressed="true">待机</button>
+      <button id="taunt" type="button" aria-pressed="false">训话</button>
+      <span class="divider"></span>
+      <button id="front" type="button">正面</button>
+      <button id="back" type="button">背面</button>
+      <button id="reset" type="button" aria-label="重置视角">重置</button>
+    </div>
+  </section>
+</main>
+<script>
+(() => {
+  const canvas = document.getElementById('preview');
+  const viewer = canvas.parentElement;
+  let renderer;
+  try { renderer = new THREE.WebGLRenderer({canvas, antialias:true}); }
+  catch(error){
+    const notice = document.createElement('p');
+    notice.className = 'error';
+    notice.textContent = '三维预览需要 WebGL，请开启浏览器的硬件加速后重新打开。';
+    viewer.appendChild(notice);
+    return;
+  }
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.12;
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0xeeede8);
+  scene.add(new THREE.HemisphereLight(0xe9f1ff, 0xb9a58b, 2.1));
+  const key = new THREE.DirectionalLight(0xffefd9, 3.0);
+  key.position.set(-3, 5, 5);
+  key.castShadow = true;
+  key.shadow.mapSize.set(2048, 2048);
+  key.shadow.camera.left = key.shadow.camera.bottom = -2.5;
+  key.shadow.camera.right = key.shadow.camera.top = 2.5;
+  key.shadow.normalBias = 0.015;
+  scene.add(key);
+  const rim = new THREE.DirectionalLight(0xd5e4ff, 2);
+  rim.position.set(2, 3, -3);
+  scene.add(rim);
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), new THREE.ShadowMaterial({color:0x5e625e, opacity:0.16}));
+  floor.rotation.x = -Math.PI / 2;
+  floor.receiveShadow = true;
+  scene.add(floor);
+  const model = BossVisual.create();
+  scene.add(model);
+  const camera = new THREE.PerspectiveCamera(32, 1, 0.05, 100);
+  let yaw = 0.35, pitch = 0.13, distance = 4.05, pose = 'idle';
+  let pointer = null, previousX = 0, previousY = 0;
+  const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
+  function resize(){
+    const width = viewer.clientWidth, height = viewer.clientHeight;
+    renderer.setSize(width, height, false);
+    camera.aspect = width / height;
+    camera.updateProjectionMatrix();
+  }
+  new ResizeObserver(resize).observe(viewer);
+  resize();
+  canvas.addEventListener('pointerdown', e => {
+    if(pointer !== null) return;
+    pointer = e.pointerId;
+    previousX = e.clientX; previousY = e.clientY;
+    canvas.setPointerCapture(pointer);
+  });
+  canvas.addEventListener('pointermove', e => {
+    if(e.pointerId !== pointer) return;
+    yaw -= (e.clientX - previousX) * 0.008;
+    pitch = clamp(pitch + (e.clientY - previousY) * 0.005, -0.15, 0.85);
+    previousX = e.clientX; previousY = e.clientY;
+  });
+  const endPointer = e => { if(e.pointerId === pointer) pointer = null; };
+  canvas.addEventListener('pointerup', endPointer);
+  canvas.addEventListener('pointercancel', endPointer);
+  canvas.addEventListener('lostpointercapture', endPointer);
+  canvas.addEventListener('wheel', e => {
+    distance = clamp(distance + e.deltaY * 0.003, 2.35, 5.8);
+    e.preventDefault();
+  }, {passive:false});
+  canvas.addEventListener('keydown', e => {
+    if(e.key === 'ArrowLeft') yaw -= 0.15;
+    else if(e.key === 'ArrowRight') yaw += 0.15;
+    else if(e.key === 'ArrowUp') pitch = clamp(pitch + 0.07, -0.15, 0.85);
+    else if(e.key === 'ArrowDown') pitch = clamp(pitch - 0.07, -0.15, 0.85);
+    else if(e.key === '+' || e.key === '=') distance = clamp(distance - 0.2, 2.35, 5.8);
+    else if(e.key === '-') distance = clamp(distance + 0.2, 2.35, 5.8);
+    else return;
+    e.preventDefault();
+  });
+  for(const id of ['idle', 'taunt']) document.getElementById(id).onclick = () => {
+    pose = id;
+    for(const name of ['idle', 'taunt']) document.getElementById(name).setAttribute('aria-pressed', String(name === pose));
+  };
+  document.getElementById('front').onclick = () => { yaw = 0; pitch = 0.08; };
+  document.getElementById('back').onclick = () => { yaw = Math.PI; pitch = 0.1; };
+  document.getElementById('reset').onclick = () => { yaw = 0.35; pitch = 0.13; distance = 4.05; };
+  const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
+  function render(now){
+    const time = reducedMotion.matches ? 0 : now / 1000;
+    const talk = pose === 'taunt' ? (reducedMotion.matches ? 0.8 : 0.55 + Math.sin(time * 3.5) * 0.35) : 0;
+    BossVisual.animate(model, time, talk);
+    const fit = camera.aspect < 0.8 ? 0.8 / camera.aspect : 1;
+    const radius = distance * fit;
+    camera.position.set(Math.sin(yaw) * Math.cos(pitch) * radius, 0.74 + Math.sin(pitch) * radius, Math.cos(yaw) * Math.cos(pitch) * radius);
+    camera.lookAt(0, 0.74, 0);
+    renderer.render(scene, camera);
+    requestAnimationFrame(render);
+  }
+  requestAnimationFrame(render);
+})();
+</script>
+</body>
+</html>
