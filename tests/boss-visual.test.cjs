@@ -24,7 +24,9 @@ for(const script of ['boss-model.js','city-visual.js','unit-visual.js','kaiju-vi
 const html = fs.readFileSync(path.join(root, 'kaiju-destroyer.html'), 'utf8');
 const gameScript = [...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)].map(m => m[1]).find(s => s.includes('class Game'));
 assert(gameScript, 'Game script exists');
-vm.runInContext(gameScript.replace(/loadHighScore\(\);\s*initThree\(\);\s*loop\(\);/, ''), context);
+const startup = gameScript.lastIndexOf('\nloadHighScore();');
+assert(startup >= 0, 'Browser startup boundary exists');
+vm.runInContext(gameScript.slice(0,startup), context);
 vm.runInContext(`
   renderer = {};
   scene = new THREE.Scene();

@@ -17,7 +17,8 @@ test('全部模型的顶点有效、绘制调用有界、单位比例稳定', ()
   for(const type of models){
     const model = visual.create(type);
     const parts = meshes(model);
-    assert(parts.length <= 20, type + ' uses at most 20 meshes');
+    assert(parts.length <= (type === 'fartHero' ? 36 : 20), type + ' bounded meshes including independently hinged petals');
+    assert(parts.reduce((sum, mesh) => sum+mesh.geometry.attributes.position.count/3,0) < 18000, type+' bounded geometry');
     for(const mesh of parts){
       for(const attribute of ['position', 'normal', 'uv']){
         assert([...mesh.geometry.getAttribute(attribute).array].every(Number.isFinite), type + ' ' + attribute);
@@ -97,6 +98,69 @@ test('直升机双旋翼和英雄披风独立动画，弱点留在背面', () =>
   assert(hero.userData.rig.weakness.position.z < -0.3);
   assert(hero.userData.rig.weakness.position.y > 0.9);
   visual.dispose(helicopter); visual.dispose(hero);
+});
+
+test('菊花侠四阶段有明确姿态，喷气与喘气显示开口，关闭后复位', () => {
+  const hero=visual.create('fartHero'), rig=hero.userData.rig;
+  visual.animate(hero,{time:0.21,moving:true});
+  assert(Math.abs(rig['left-leg'].rotation.x)>0.3,'chase walks');
+  assert(!rig['weak-core'].visible,'closed flower conceals the core');
+  visual.animate(hero,{time:0.21,moving:true,heroState:'charge',phase:1});
+  assert(rig.belly.scale.z>1.4,'charge visibly inflates belly');
+  assert(rig['left-knee'].rotation.x<-0.5,'charge bends knees');
+  assert.equal(rig['left-leg'].rotation.x,rig['right-leg'].rotation.x,'charge stops stride');
+  visual.animate(hero,{time:0.21,heroState:'spray',phase:0.3});
+  assert(rig.body.position.z>0.03,'spray recoils forward from rear nozzle');
+  assert(rig.petals.every(petal=>petal.rotation.x>0.9),'spray opens the exhaust');
+  assert(rig['weak-core'].visible);
+  visual.animate(hero,{time:0.21,heroState:'recover',phase:0.4,weaknessOpen:true});
+  assert(rig.mouth.scale.y>1.6,'recover visibly pants');
+  assert(rig.petals.every(petal=>petal.rotation.x>1.2),'recover fully exposes core');
+  assert(meshes(rig['weak-core'])[0].material.emissiveIntensity>=1,'weak core glows');
+  visual.animate(hero,{time:0,heroState:'chase'});
+  assert.equal(rig.belly.scale.z,1);
+  assert(Math.abs(rig['left-knee'].rotation.x)<1e-12);
+  assert(rig.petals.every(petal=>petal.rotation.x===0));
+  assert.equal(rig.mouth.scale.y,1);
+  assert(!rig['weak-core'].visible);
+  visual.dispose(hero);
+});
+
+test('后腰公开锚点与真实核心一致，各阶段不移动，短披风不挡背面核心', () => {
+  const hero=visual.create('fartHero'), rig=hero.userData.rig;
+  assert(Object.isFrozen(visual.HERO_NOZZLE));
+  assert.equal(rig.weakness.parent,hero,'nozzle position is independent of torso motion');
+  const expected=new THREE.Vector3(visual.HERO_NOZZLE.x,visual.HERO_NOZZLE.y,visual.HERO_NOZZLE.z);
+  for(const heroState of ['chase','charge','spray','recover']){
+    visual.animate(hero,{time:1.2,moving:true,heroState,phase:0.6,weaknessOpen:heroState==='recover'});
+    hero.updateMatrixWorld(true);
+    assert(rig['weak-core'].getWorldPosition(new THREE.Vector3()).distanceTo(expected)<1e-12);
+  }
+  const ray=new THREE.Raycaster(new THREE.Vector3(0,visual.HERO_NOZZLE.y,-2),new THREE.Vector3(0,0,1));
+  const intersections=ray.intersectObject(hero,true).filter(hit=>hit.object.parent!==rig['weak-core']||rig['weak-core'].visible);
+  assert(intersections.length>0);
+  assert.equal(intersections[0].object.parent,rig['weak-core'],'back view can directly see the exposed core');
+  visual.dispose(hero);
+});
+
+test('英雄动画不推进状态，重复渲染与回到追击确定复位，实例姿态和受击发光隔离', () => {
+  const a=visual.create('fartHero'), b=visual.create('fartHero');
+  function snapshot(root){
+    const list=[];root.traverse(node=>{
+      list.push([node.name,node.visible,...node.position.toArray(),...node.rotation.toArray(),...node.scale.toArray(),...(node.isMesh?[node.material.color.getHex(),node.material.emissive.getHex(),node.material.emissiveIntensity]:[])]);
+    });return JSON.stringify(list);
+  }
+  const input={time:1.34,heroState:'recover',phase:0.3,weaknessOpen:true,hit:0.7};
+  const bBefore=snapshot(b);
+  visual.animate(a,input);const once=snapshot(a);visual.animate(a,input);
+  assert.equal(snapshot(a),once,'same input gives the same pose without changing state');
+  assert.equal(snapshot(b),bBefore,'second hero animation and glow are untouched');
+  assert.notEqual(meshes(a)[0].material.color.getHex(),meshes(b)[0].material.color.getHex(),'hit color is instance local');
+  visual.animate(a,{time:0.5,moving:true});visual.animate(b,{time:0.5,moving:true});
+  assert.equal(snapshot(a),snapshot(b),'all charged/recovery/hit transforms reset');
+  visual.animate(a,{time:0,heroState:'charge',phase:99,hit:-4});
+  assert.equal(a.userData.rig.belly.scale.z,1.45,'phase is clamped');
+  visual.dispose(a);visual.dispose(b);
 });
 
 test('三个工服变体缓存有界且无未知单位静默回退', () => {

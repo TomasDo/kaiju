@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>菊花侠 · 角色展示与练习</title>
+<style>
+:root{color-scheme:light;--ink:#203b2e;--muted:#637569;--line:#cbd4c5;--paper:#f2f2e9;--purple:#725092;--yellow:#ebc251}*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font:14px/1.6 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}button,a,input{font:inherit}a{color:inherit;text-decoration:none}a:hover{text-decoration:underline}button{cursor:pointer}button:focus-visible,a:focus-visible,input:focus-visible,canvas:focus-visible,iframe:focus-visible{outline:3px solid var(--purple);outline-offset:4px}.site-head{max-width:1440px;margin:auto;padding:20px 36px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);font-size:12px}.brand{font-size:11px;letter-spacing:2px;font-weight:700}.head-links{display:flex;gap:22px}.feature{max-width:1440px;margin:auto;display:grid;grid-template-columns:390px minmax(0,1fr);min-height:640px}.intro{padding:46px 36px 36px;display:flex;flex-direction:column;justify-content:center}.eyebrow{display:flex;align-items:center;gap:8px;color:var(--purple);font-size:11px;letter-spacing:2px;font-weight:650}.eyebrow::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--purple)}h1{font-size:56px;line-height:1.15;letter-spacing:-3px;font-weight:700;margin:19px 0 14px}.tagline{margin:0 0 22px;font-size:19px;font-weight:500}.description{font-size:13px;color:var(--muted);line-height:1.9;margin:0;max-width:305px}.counter{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin:28px 0 26px;padding:17px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}.counter strong{display:block;font-size:25px;font-weight:600;line-height:1.3}.counter span{font-size:10px;color:var(--muted)}.tactic{display:flex;align-items:flex-start;gap:10px;margin:0 0 13px;font-size:12px;line-height:1.7}.tactic .num{font-size:10px;color:var(--purple);font-weight:700;padding-top:2px}.tactic strong{font-weight:600}.practice-link{margin-top:15px;display:inline-flex;align-self:flex-start;align-items:center;gap:28px;font-size:12px;font-weight:600;background:var(--ink);color:#fff;border-radius:8px;padding:12px 18px}.practice-link:hover{background:#31503d;text-decoration:none}.viewer{position:relative;min-width:0;height:640px;overflow:hidden;background:#e7ebe0;border-left:1px solid var(--line)}#preview{display:block;width:100%;height:100%;cursor:grab;touch-action:none}#preview:active{cursor:grabbing}.viewer-top{position:absolute;left:26px;right:26px;top:22px;display:flex;justify-content:space-between;gap:12px;align-items:flex-start;pointer-events:none}.viewer-title{font-size:10px;letter-spacing:2px;color:var(--muted)}.stage-pill{font-size:11px;background:rgba(250,251,244,.9);border:1px solid #ccd5c5;border-radius:20px;padding:5px 12px;color:#42604b}.weakness-label{position:absolute;left:50%;top:47%;transform:translate(-50%,-50%);padding:5px 13px;border-radius:20px;background:#ffe599;color:#543b23;border:1px solid #d8b753;font-size:12px;font-weight:700;box-shadow:0 3px 12px #1f382616;pointer-events:none;opacity:0;transition:opacity .12s}.weakness-label.visible{opacity:1}.view-buttons{position:absolute;top:60px;right:24px;display:flex;gap:4px;flex-direction:column}.view-buttons button{background:rgba(250,251,244,.7);border:1px solid transparent;border-radius:7px;color:#627363;font-size:11px;padding:7px 13px}.view-buttons button[aria-pressed=true]{border-color:#a5bba6;color:#254530;background:#f9fbf4}.view-buttons button:hover{background:#fff}.viewer-bottom{position:absolute;bottom:22px;left:26px;right:26px}.viewer-help{text-align:center;font-size:10px;color:var(--muted);margin-bottom:14px}.pose-controls{display:flex;justify-content:center;flex-wrap:wrap;gap:5px}.pose-controls button{padding:8px 14px;font-size:11px;color:#58705c;background:#f7f9f0e8;border:1px solid #cdd7c6;border-radius:7px}.pose-controls button[aria-pressed=true]{background:var(--ink);color:white;border-color:var(--ink)}.pose-controls button:hover{border-color:#8da68c}.pose-controls .play-button{min-width:97px;border-color:#aaaec1;color:var(--purple)}.timeline{margin:15px auto 0;display:flex;gap:5px;max-width:540px}.timeline-segment{position:relative;height:3px;background:#ced8c8;overflow:hidden;border-radius:2px}.timeline-segment span{position:absolute;inset:0;background:#6c885b;transform:scaleX(0);transform-origin:left}.timeline-segment[data-state=recover] span{background:#d3a43c}.stage-note{text-align:center;margin:8px 0 0;font-size:11px;color:#65745c;min-height:18px}.error{position:absolute;top:40%;left:12%;right:12%;padding:18px;text-align:center;color:#773d36;background:#fff7ee;border-radius:10px}.lesson{max-width:1440px;margin:0 auto;padding:34px 36px 30px;border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(4,1fr);gap:24px}.lesson-step{border-top:2px solid #a6baa0;padding-top:14px}.lesson-step.weak{border-color:#d5af47}.lesson-step header{display:flex;justify-content:space-between;align-items:center;gap:8px}.lesson-step h2{font-size:13px;margin:0;font-weight:650}.lesson-step time{font-size:10px;color:#7b8574}.lesson-step p{font-size:11px;line-height:1.8;color:var(--muted);margin:7px 0 0}.practice{max-width:1440px;margin:0 auto;padding:28px 36px 34px}.practice-head{display:flex;justify-content:space-between;align-items:flex-end;gap:24px;margin-bottom:16px}.practice h2{font-size:25px;letter-spacing:-.8px;margin:0 0 4px;font-weight:650}.practice-head p{margin:0;color:var(--muted);font-size:12px}.practice-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.practice-controls button,.fallback-link{border:1px solid #b8c7b0;border-radius:7px;padding:8px 13px;color:#36543e;background:#fafbf5;font-size:12px;white-space:nowrap}.practice-controls button:hover{background:#e3ebda}.practice-controls button:disabled{opacity:.45;cursor:wait}.autofire{display:flex;gap:6px;align-items:center;font-size:11px;color:var(--muted);margin-right:7px;cursor:pointer}.autofire input{accent-color:var(--purple);width:15px;height:15px}.practice-wrap{border:1px solid #aebfa6;border-radius:12px;overflow:hidden;background:#172719;box-shadow:0 8px 28px #2136280c}iframe{width:100%;height:640px;display:block;border:0;background:#172719}.practice-footer{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:12px 16px;background:#e7ebe0;color:#5d715e;font-size:11px}.practice-footer p{margin:0}.practice-status{color:#506a50;font-variant-numeric:tabular-nums;white-space:nowrap}.fallback{font-size:11px;color:#6c7669;margin:12px 0 0;line-height:1.8}.fallback-link{display:inline;padding:3px 7px;font-size:11px}.footer{max-width:1440px;margin:auto;display:flex;justify-content:space-between;gap:15px;padding:20px 36px 24px;color:#7c8879;border-top:1px solid var(--line);font-size:10px;letter-spacing:.5px}
+@media(max-width:1050px){.feature{grid-template-columns:320px minmax(0,1fr)}.intro{padding:35px 28px}.site-head,.lesson,.practice,.footer{padding-left:28px;padding-right:28px}h1{font-size:47px}.counter strong{font-size:23px}.practice-head{align-items:flex-start;flex-direction:column;gap:12px}.lesson{gap:18px}.viewer{height:620px}.feature{min-height:620px}iframe{height:600px}}
+@media(max-width:720px){.site-head{padding:16px 20px}.brand{font-size:9px;letter-spacing:1.3px}.head-links{gap:13px;font-size:11px}.feature{display:block;min-height:0}.intro{padding:28px 22px 24px}.eyebrow{font-size:9px}h1{font-size:43px;margin:12px 0 9px}.tagline{font-size:16px;margin:0 0 13px}.description{max-width:none;font-size:12px}.counter{margin:19px 0 0;max-width:390px;padding:13px 0}.tactics,.practice-link{display:none}.viewer{height:490px;border-left:0;border-top:1px solid var(--line)}.viewer-top{left:20px;right:20px;top:17px}.view-buttons{top:53px;right:17px}.viewer-bottom{left:14px;right:14px;bottom:17px}.pose-controls button{padding:8px 11px;font-size:10px}.pose-controls .play-button{min-width:88px}.viewer-help{margin-bottom:11px}.lesson{padding:24px 22px;grid-template-columns:1fr 1fr;gap:21px 20px}.practice{padding:19px 18px 26px}.practice h2{font-size:22px}.practice-controls{gap:7px}.autofire{width:100%;margin:0 0 2px}.practice-controls button{padding:8px 12px;font-size:11px}iframe{height:580px}.practice-footer{align-items:flex-start;flex-direction:column;gap:5px;padding:11px 13px}.footer{padding:17px 22px;font-size:9px;flex-direction:column;gap:3px}.stage-note{font-size:10px}.fallback{font-size:10px}}
+@media(prefers-reduced-motion:reduce){.weakness-label{transition:none}html{scroll-behavior:auto}}
+</style>
+<script src="vendor/three.min.js"></script>
+<script src="unit-visual.js"></script>
+</head>
+<body>
+<nav class="site-head" aria-label="页面导航"><a class="brand" href="kaiju-destroyer.html">KAIJU DESTROYER</a><div class="head-links"><a href="tests/character-check.html">全部角色</a><a href="kaiju-destroyer.html">返回游戏 ↗</a></div></nav>
+<main>
+  <section class="feature" aria-labelledby="hero-title">
+    <div class="intro">
+      <div class="eyebrow">精英敌人 / 角色 03</div>
+      <h1 id="hero-title">菊花侠</h1>
+      <p class="tagline">英雄也需要喘口气。</p>
+      <p class="description">绿色制服，紫色眼罩，身后藏着一朵危险的小花。躲开他的蓄气喷屁，绕到背后，趁花瓣打开时喷火。</p>
+      <div class="counter" aria-label="角色基础数值"><div><strong>80</strong><span>基础生命</span></div><div><strong>12</strong><span>气团伤害</span></div><div><strong>×5</strong><span>喘气背击</span></div></div>
+      <div class="tactics"><p class="tactic"><span class="num">01</span><span><strong>看条带，向侧面躲。</strong><br>蓄气后锁定方向，气团最多飞行 8 格。</span></p><p class="tactic"><span class="num">02</span><span><strong>看花瓣，绕后喷火。</strong><br>1.2 秒喘气窗口，背面喷火造成 5 倍伤害。</span></p><p class="tactic"><span class="num">03</span><span><strong>踩踏，主动制造破绽。</strong><br>打断蓄气或喷气，立刻进入喘气。</span></p></div>
+      <a class="practice-link" href="#practice">进入单敌人练习 <span aria-hidden="true">↓</span></a>
+    </div>
+    <div class="viewer" aria-label="菊花侠三维展示">
+      <canvas id="preview" tabindex="0" aria-label="菊花侠三维模型。拖动旋转，滚轮缩放；方向键旋转视角，加减键缩放。"></canvas>
+      <div class="viewer-top"><span class="viewer-title">CHARACTER STUDY / 3D</span><span class="stage-pill" id="stage-label">追击 · 弱点关闭</span></div>
+      <div class="weakness-label" id="weakness-label" aria-hidden="true">绕后 ×5</div>
+      <div class="view-buttons" aria-label="固定视角"><button data-view="front" aria-pressed="true">正面</button><button data-view="back" aria-pressed="false">背面</button><button data-view="side" aria-pressed="false">侧面</button><button id="reset-view" aria-label="重置三维视角">重置</button></div>
+      <div class="viewer-bottom">
+        <div class="viewer-help">拖动旋转 · 滚轮缩放 · 点击阶段查看姿态</div>
+        <div class="pose-controls" aria-label="技能姿态与动画控制"><button data-pose="chase" aria-pressed="false">追击</button><button data-pose="charge" aria-pressed="false">蓄气</button><button data-pose="spray" aria-pressed="false">喷气</button><button data-pose="recover" aria-pressed="false">喘气</button><button class="play-button" id="cycle" aria-pressed="true">循环演示</button><button class="play-button" id="motion" aria-pressed="false">暂停动画</button></div>
+        <div class="timeline" aria-hidden="true"><div class="timeline-segment" data-state="chase" style="flex:1.5"><span></span></div><div class="timeline-segment" data-state="charge" style="flex:.7"><span></span></div><div class="timeline-segment" data-state="spray" style="flex:.3"><span></span></div><div class="timeline-segment" data-state="recover" style="flex:1.2"><span></span></div></div>
+        <p class="stage-note" id="stage-note">慢速转身接近玩家，准备下一次攻击。</p>
+      </div>
+    </div>
+  </section>
+  <section class="lesson" aria-label="攻击节奏">
+    <article class="lesson-step"><header><h2>01 追击</h2><time>8 格内</time></header><p>慢速转身靠近。无遮挡且冷却结束时，才会开始蓄气。</p></article>
+    <article class="lesson-step"><header><h2>02 蓄气</h2><time>0.7 秒</time></header><p>停步鼓腹，背朝锁定方向。地面条带预告弹道，向侧面闪避。</p></article>
+    <article class="lesson-step"><header><h2>03 喷气</h2><time>0.3 秒</time></header><p>后腰射出绿色气团。建筑能挡住它；中招后减速 40%，持续 1.5 秒。</p></article>
+    <article class="lesson-step weak"><header><h2>04 喘气</h2><time>1.2 秒</time></header><p>花瓣打开，核心发亮。绕后喷火打出 5 倍伤害，踩踏也能提前开启窗口。</p></article>
+  </section>
+  <section class="practice" id="practice" aria-labelledby="practice-title">
+    <div class="practice-head"><div><h2 id="practice-title">轮到你，抓住破绽。</h2><p>一只菊花侠，一块空地。使用游戏的正式战斗规则练习闪避与背击。</p></div><div class="practice-controls"><label class="autofire"><input id="auto-fire" type="checkbox" disabled>自动喷火辅助</label><button id="practice-pause" disabled aria-pressed="false">暂停练习</button><button id="practice-restart" disabled>重新开始</button><a class="fallback-link" href="kaiju-destroyer.html?heroPractice=1" target="_blank" rel="noopener">独立窗口 ↗</a></div></div>
+    <div class="practice-wrap"><iframe id="practice-frame" title="菊花侠单敌人练习场" src="kaiju-destroyer.html?heroPractice=1" tabindex="0" allow="autoplay"></iframe><div class="practice-footer"><p>点击场景后操作：WASD 移动 · 鼠标瞄准 · Shift 冲刺 · 空格踩踏 · P 暂停</p><span class="practice-status" id="practice-status" role="status">正在加载练习场…</span></div></div>
+    <p class="fallback" id="practice-fallback">手机可使用场景内的摇杆与按钮。若本地文件限制嵌入控制，请使用 <a class="fallback-link" href="kaiju-destroyer.html?heroPractice=1" target="_blank" rel="noopener">独立窗口</a>；完整游戏从第 3 波首次遇见菊花侠。</p>
+  </section>
+</main>
+<footer class="footer"><span>程序模型 · 本地 Three.js · 同一套战斗逻辑</span><span>角色展示中的追击时长仅用于演示；练习场按距离与冷却触发攻击。</span></footer>
+<script>
+(() => {
+  'use strict';
+  const descriptions = {
+    chase: ['追击 · 弱点关闭', '慢速转身接近玩家，准备下一次攻击。'],
+    charge: ['蓄气 · 0.7 秒', '停步鼓腹，背朝锁定方向；侧移躲开弹道。'],
+    spray: ['喷气 · 0.3 秒', '后腰喷出气团，方向已锁定，身体向前后坐。'],
+    recover: ['喘气 · 弱点开放', '花瓣打开，趁 1.2 秒窗口从背面喷火：×5。']
+  };
+  const canvas = document.getElementById('preview');
+  const viewer = canvas.parentElement;
+  const cycleButton = document.getElementById('cycle');
+  const motionButton = document.getElementById('motion');
+  const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
+  let renderer;
+  try {
+    renderer = new THREE.WebGLRenderer({canvas, antialias: true});
+  } catch (error) {
+    const notice = document.createElement('p');
+    notice.className = 'error';
+    notice.textContent = '三维预览需要 WebGL。请开启浏览器硬件加速后重新打开；下方练习场仍可单独打开。';
+    viewer.appendChild(notice);
+  }
+  if (renderer) {
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.08;
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0xe7ebe0);
+    scene.add(new THREE.HemisphereLight(0xf3f7fc, 0xadb895, 2.0));
+    const key = new THREE.DirectionalLight(0xfff0ce, 3.1);
+    key.position.set(-3, 5, 4);
+    key.castShadow = true;
+    key.shadow.mapSize.set(1024, 1024);
+    key.shadow.camera.left = key.shadow.camera.bottom = -2.5;
+    key.shadow.camera.right = key.shadow.camera.top = 2.5;
+    key.shadow.normalBias = 0.015;
+    scene.add(key);
+    const rim = new THREE.DirectionalLight(0xe6dcff, 1.7);
+    rim.position.set(2, 3, -3);
+    scene.add(rim);
+    const model = UnitVisual.create('fartHero');
+    scene.add(model);
+    const bounds = new THREE.Box3().setFromObject(model);
+    const center = bounds.getCenter(new THREE.Vector3());
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(80, 80), new THREE.ShadowMaterial({color: 0x39573e, opacity: 0.16}));
+    floor.rotation.x = -Math.PI / 2;
+    floor.position.y = bounds.min.y - 0.01;
+    floor.receiveShadow = true;
+    scene.add(floor);
+    const platform = new THREE.Mesh(new THREE.CylinderGeometry(0.78, 0.78, 0.025, 64), new THREE.MeshStandardMaterial({color:0xd9e2cf, roughness:.96}));
+    platform.position.y = bounds.min.y - 0.025;
+    platform.receiveShadow = true;
+    scene.add(platform);
+    const camera = new THREE.PerspectiveCamera(31, 1, 0.05, 100);
+    let yaw = 0.30, pitch = 0.13, distance = 5.55;
+    let pointer = null, previousX = 0, previousY = 0;
+    let elapsed = 0, cycleTime = 0, previous = null, accumulator = 0;
+    let selectedPose = null, paused = reducedMotion.matches;
+    const stages = [['chase',1.5], ['charge',.7], ['spray',.3], ['recover',1.2]];
+    const cycleDuration = stages.reduce((sum, entry) => sum + entry[1], 0);
+    const clamp = (n, low, high) => Math.max(low, Math.min(high, n));
+    function resize() {
+      const width = viewer.clientWidth, height = viewer.clientHeight;
+      renderer.setSize(width, height, false);
+      camera.aspect = width / Math.max(1, height);
+      camera.updateProjectionMatrix();
+    }
+    const observer = new ResizeObserver(resize);
+    observer.observe(viewer);
+    resize();
+    function syncButtons() {
+      document.querySelectorAll('[data-pose]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.pose === selectedPose)));
+      cycleButton.setAttribute('aria-pressed', String(selectedPose === null));
+      motionButton.setAttribute('aria-pressed', String(paused));
+      motionButton.textContent = paused ? '播放动画' : '暂停动画';
+    }
+    function setView(name) {
+      yaw = name === 'back' ? Math.PI + .15 : name === 'side' ? Math.PI / 2 : .30;
+      pitch = .13;
+      document.querySelectorAll('[data-view]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.view === name)));
+    }
+    document.querySelectorAll('[data-view]').forEach(button => button.addEventListener('click', () => setView(button.dataset.view)));
+    document.getElementById('reset-view').addEventListener('click', () => {setView('front'); distance = 5.55;});
+    document.querySelectorAll('[data-pose]').forEach(button => button.addEventListener('click', () => {selectedPose = button.dataset.pose; syncButtons();}));
+    cycleButton.addEventListener('click', () => {selectedPose = null; cycleTime = 0; syncButtons();});
+    motionButton.addEventListener('click', () => {paused = !paused; syncButtons();});
+    canvas.addEventListener('pointerdown', event => {
+      if (pointer !== null) return;
+      pointer = event.pointerId;
+      previousX = event.clientX; previousY = event.clientY;
+      canvas.setPointerCapture(pointer);
+    });
+    canvas.addEventListener('pointermove', event => {
+      if (event.pointerId !== pointer) return;
+      yaw -= (event.clientX - previousX) * .008;
+      pitch = clamp(pitch + (event.clientY - previousY) * .005, -.08, .70);
+      previousX = event.clientX; previousY = event.clientY;
+      document.querySelectorAll('[data-view]').forEach(button => button.setAttribute('aria-pressed','false'));
+    });
+    const releasePointer = event => {if (event.pointerId === pointer) pointer = null;};
+    canvas.addEventListener('pointerup', releasePointer);
+    canvas.addEventListener('pointercancel', releasePointer);
+    canvas.addEventListener('lostpointercapture', releasePointer);
+    canvas.addEventListener('wheel', event => {distance = clamp(distance + event.deltaY * .003, 3.4, 6.8); event.preventDefault();}, {passive:false});
+    canvas.addEventListener('keydown', event => {
+      if (event.key === 'ArrowLeft') yaw -= .15;
+      else if (event.key === 'ArrowRight') yaw += .15;
+      else if (event.key === 'ArrowUp') pitch = clamp(pitch + .07, -.08, .70);
+      else if (event.key === 'ArrowDown') pitch = clamp(pitch - .07, -.08, .70);
+      else if (event.key === '+' || event.key === '=') distance = clamp(distance - .2, 3.4, 6.8);
+      else if (event.key === '-') distance = clamp(distance + .2, 3.4, 6.8);
+      else return;
+      event.preventDefault();
+    });
+    syncButtons();
+    let alive = true;
+    function render(now) {
+      if (!alive) return;
+      const delta = previous === null ? 0 : Math.min(.1, (now - previous) / 1000);
+      previous = now;
+      if (!paused && !document.hidden) accumulator += delta;
+      while (accumulator >= 1 / 60) {elapsed += 1 / 60; cycleTime = (cycleTime + 1 / 60) % cycleDuration; accumulator -= 1 / 60;}
+      let state = selectedPose || 'chase', phase = .65;
+      if (!selectedPose) {
+        let remaining = cycleTime;
+        for (const entry of stages) {state = entry[0]; phase = remaining / entry[1]; if (remaining < entry[1]) break; remaining -= entry[1];}
+      }
+      UnitVisual.animate(model, {time:elapsed, moving:state === 'chase', heroState:state, phase:clamp(phase,0,1), weaknessOpen:state === 'recover', hit:0});
+      document.getElementById('stage-label').textContent = descriptions[state][0];
+      document.getElementById('stage-note').textContent = descriptions[state][1];
+      let passed = !selectedPose;
+      document.querySelectorAll('.timeline-segment').forEach(segment => {
+        const active = segment.dataset.state === state;
+        segment.firstElementChild.style.transform = 'scaleX(' + (active ? phase : passed ? 1 : 0) + ')';
+        if (active) passed = false;
+      });
+      const fit = camera.aspect < 1 ? 1 / Math.sqrt(camera.aspect) : 1;
+      const radius = distance * fit;
+      camera.position.set(Math.sin(yaw) * Math.cos(pitch) * radius, center.y + Math.sin(pitch) * radius, Math.cos(yaw) * Math.cos(pitch) * radius);
+      camera.lookAt(center);
+      camera.updateMatrixWorld(true);
+      const weakness = model.getObjectByName('unit-weakness');
+      const label = document.getElementById('weakness-label');
+      const showWeakness = state === 'recover' && Math.cos(yaw) < -.15;
+      if (weakness && showWeakness) {
+        model.updateMatrixWorld(true);
+        const point = weakness.getWorldPosition(new THREE.Vector3()).project(camera);
+        label.style.left = (point.x * .5 + .5) * viewer.clientWidth + 'px';
+        label.style.top = (-point.y * .5 + .5) * viewer.clientHeight - 34 + 'px';
+      }
+      label.classList.toggle('visible', showWeakness);
+      renderer.render(scene,camera);
+      requestAnimationFrame(render);
+    }
+    requestAnimationFrame(render);
+    window.addEventListener('pagehide', () => {alive = false; observer.disconnect(); UnitVisual.dispose(model); floor.geometry.dispose(); floor.material.dispose(); platform.geometry.dispose(); platform.material.dispose(); renderer.dispose();}, {once:true});
+  }
+
+  const frame = document.getElementById('practice-frame');
+  const pauseButton = document.getElementById('practice-pause');
+  const restartButton = document.getElementById('practice-restart');
+  const autoFire = document.getElementById('auto-fire');
+  const status = document.getElementById('practice-status');
+  let api = null, syncTimer = null, unavailableTicks = 0, practiceVisible = false, visibilityPaused = false;
+  function applyPracticeVisibility() {
+    if (!api) return;
+    const state = api.getState();
+    const visible = practiceVisible && !document.hidden;
+    if (!visible && !state.paused) {api.pause(true); visibilityPaused = true;}
+    else if (visible && visibilityPaused) {api.pause(false); visibilityPaused = false;}
+  }
+  const practiceObserver = new IntersectionObserver(entries => {
+    practiceVisible = entries[0].isIntersecting && entries[0].intersectionRatio >= .15;
+    try {applyPracticeVisibility();} catch (error) {api = null;}
+  }, {threshold:[0,.15]});
+  practiceObserver.observe(frame);
+  document.addEventListener('visibilitychange', () => {try {applyPracticeVisibility();} catch (error) {api = null;}});
+  function syncPractice() {
+    try {
+      api = frame.contentWindow && frame.contentWindow.HeroPractice;
+      if (!api || typeof api.getState !== 'function') {
+        unavailableTicks++;
+        if (unavailableTicks > 15) status.textContent = '请使用独立窗口练习';
+        return;
+      }
+      unavailableTicks = 0;
+      pauseButton.disabled = false;
+      restartButton.disabled = false;
+      autoFire.disabled = false;
+      applyPracticeVisibility();
+      const state = api.getState();
+      if (typeof state.autoFire === 'boolean') autoFire.checked = state.autoFire;
+      pauseButton.setAttribute('aria-pressed', String(Boolean(state.paused)));
+      pauseButton.textContent = state.paused ? '继续练习' : '暂停练习';
+      const heroState = state.heroState || (state.hero && (state.hero.state || state.hero.heroState));
+      status.textContent = state.paused ? '已暂停' : heroState === 'defeated' ? '菊花侠已击败 · 可重新开始' : state.gameOver || state.dead || state.playerHp <= 0 ? '练习结束 · 可重新开始' : descriptions[heroState] ? descriptions[heroState][0] : '练习已就绪';
+    } catch (error) {
+      api = null;
+      pauseButton.disabled = true;
+      restartButton.disabled = true;
+      autoFire.disabled = true;
+      status.textContent = '本地文件限制嵌入控制 · 请使用独立窗口';
+    }
+  }
+  frame.addEventListener('load', () => {syncPractice(); if (!syncTimer) syncTimer = setInterval(syncPractice,250);});
+  pauseButton.addEventListener('click', () => {if (api) {api.pause(); syncPractice();}});
+  restartButton.addEventListener('click', () => {if (api) {api.restart(); api.setAutoFire(autoFire.checked); syncPractice(); frame.focus();}});
+  autoFire.addEventListener('change', () => {if (api) api.setAutoFire(autoFire.checked);});
+  window.addEventListener('pagehide', () => {if (syncTimer) clearInterval(syncTimer); practiceObserver.disconnect();}, {once:true});
+})();
+</script>
+</body>
+</html>

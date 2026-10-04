@@ -23,8 +23,13 @@ button:focus-visible,a:focus-visible{outline:3px solid #ffd47a;outline-offset:5p
 .friendly{color:#91e8bd!important}
 #touch-controls{display:none;position:fixed;right:14px;bottom:140px;z-index:20;gap:7px}
 #touch-controls button{min-width:50px;min-height:44px;padding:8px;border:1px solid #8ea4b5;background:#142c3ce8;color:white;border-radius:8px;font:13px system-ui}
+#practice-controls{position:fixed;left:50%;top:14px;transform:translateX(-50%);z-index:21;display:flex;flex-wrap:wrap;justify-content:center;gap:8px;max-width:calc(100vw - 24px);width:max-content;padding:10px 12px;background:#102b31ed;border:1px solid #88b598;border-radius:10px;color:#e4f1dd;font:12px system-ui}
+#practice-controls button{padding:6px 10px;background:#314f40;color:#fff;border:1px solid #88b598;border-radius:5px;cursor:pointer}
+#practice-readout{flex-basis:100%;text-align:center;color:#ffe39a}
+#practice-controls label{display:flex;align-items:center;gap:6px}
 .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
 @media(pointer:coarse),(max-width:600px){#touch-controls{display:flex}.info{font-size:12px}.final-score{font-size:18px}#gameover-screen h1{font-size:36px}}
+@media(max-width:600px){#practice-controls{top:112px}#practice-controls button{padding:6px 8px}}
 .hidden{display:none!important}
 </style>
 <!-- three.js r160 已本地化到 vendor/，双击本文件即可离线游玩。
@@ -47,16 +52,25 @@ button:focus-visible,a:focus-visible{outline:3px solid #ffd47a;outline-offset:5p
   <button onclick="triggerStomp()">踩踏</button>
 </div>
 <div id="game-status" class="sr-only" role="status" aria-live="polite"></div>
+<div id="practice-controls" class="hidden" aria-label="菊花侠练习控制">
+  <span id="practice-readout" role="status">菊花侠练习场</span>
+  <label><input id="practice-fire" type="checkbox" onchange="HeroPractice.setAutoFire(this.checked)">自动喷火</label>
+  <button onclick="HeroPractice.restart()">重新练习</button>
+  <button id="practice-pause" onclick="HeroPractice.pause()">暂停练习</button>
+  <button id="practice-sound" onclick="toggleMute()">开启声音</button>
+</div>
 
 <div id="start-screen">
   <h1>巨兽毁灭者</h1>
   <h2>KAIJU DESTROYER — 第三人称 3D</h2>
   <button class="btn" onclick="startGame()">开始破坏</button>
   <a href="boss-preview.html" style="margin-top:18px;color:#c8b28b;font-size:13px;text-underline-offset:5px">查看新版 Boss · 3D 角色展示</a>
+  <a href="hero-preview.html" style="margin-top:12px;color:#bbdb9b;font-size:13px;text-underline-offset:5px">菊花侠 · 动作展示与练习场</a>
+  <a href="city-preview.html" style="margin-top:12px;color:#f3c894;font-size:13px;text-underline-offset:5px">八款建筑 · 卡通商业城</a>
   <div class="info">
     <b>W A S D</b> 移动 &nbsp;|&nbsp; <b>Shift</b> 冲刺 &nbsp;|&nbsp; <b>空格</b> 踩踏冲击波<br>
     <b>鼠标</b> 控制攻击方向 &nbsp;|&nbsp; 火焰自动喷射<br>
-    摧毁大楼回血 &nbsp;|&nbsp; <b>放屁侠</b>：绕到背后瞄准菊花！<br>
+    摧毁大楼回血 &nbsp;|&nbsp; <b>菊花侠</b>：躲喷屁，喘气时绕后 ×5！踩踏可打断蓄气<br>
     <b class="friendly">打工人是队友</b>：不会攻击你，靠近可延长连击，保护他们免受流弹伤害<br>
     楼顶<b>西装老板</b>：喷火攻击，或烧塌脚下的楼后再踩踏<br>
     触屏：左侧拖动移动，右侧拖动瞄准、轻点踩踏
@@ -82,6 +96,7 @@ const buildingMeshes = new Map();
 const enemyMeshMap = new WeakMap();
 const projMeshMap = new WeakMap();
 const pickupMeshMap = new WeakMap();
+const heroWarningMap = new Map();
 const mouseNDC = new THREE.Vector2();
 const raycaster = new THREE.Raycaster();
 const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
@@ -96,6 +111,7 @@ const BALANCE = {
   playerSpeed: 0.085,
   sprintMult: 1.8,
   fartSlowMult: 0.6,        // 熏晕移速 -40%
+  fartDebuffFrames: 90,
   insultFireMult: 0.6,      // 心态崩了火力 -40%
   hitRadius: 1.1,
   pickupRadius: 1.6,
@@ -113,7 +129,10 @@ const BALANCE = {
   // 敌人
   enemyDespawnDist: 25,     // 脱离这个距离就淡出离场
   enemyShootDist: 18,
-  fartTurnRate: 0.022,      // 放屁侠转身速率上限
+  fartTurnRate: 0.022,      // 菊花侠追击时的转身速率上限
+  heroChargeFrames: 42, heroSprayFrames: 18, heroRecoverFrames: 72,
+  heroCooldownFrames: 90, heroRange: 8, heroProjectileSpeed: 0.12,
+  heroMaxAlive: 2, heroScale: 1.4,
   waveGrowth: 0.12,         // wave 10 后每波属性成长
   // 连击
   comboBaseWindow: 180,
@@ -130,6 +149,15 @@ const GODZILLA_H = 7;
 const PLAYER_HIT_RADIUS = BALANCE.hitRadius;
 const PLAYER_PICKUP_RADIUS = BALANCE.pickupRadius;
 const CAM_OFFSET = { x: 18, y: 29, z: 20 };
+const PRACTICE_CAM_OFFSET = {x:11,y:19,z:13};
+
+function getCameraOffset(practice){
+  if(!practice) return CAM_OFFSET;
+  if(window.innerWidth >= 600) return PRACTICE_CAM_OFFSET;
+  // 长尾也要留在画面中，320px 比390px按比例再拉远。
+  const scale = 1.12 * Math.max(1,390/window.innerWidth);
+  return {x:CAM_OFFSET.x*scale,y:CAM_OFFSET.y*scale,z:CAM_OFFSET.z*scale};
+}
 
 function resize(){
   const w = window.innerWidth, h = window.innerHeight;
@@ -248,8 +276,10 @@ function buildCityMeshes(){
 }
 
 function addBuildingMesh(ci, mx, my){
+  const cell = buildMeta[ci];
   const mesh = CityVisual.createCell({ci, x:mx, y:my, floors:buildHeight[ci] || 3,
-    colorId:buildColorId[ci] || 0, map, mapSize:MAP, buildUnit:BUILD_UNIT});
+    colorId:buildColorId[ci] || 0, map, mapSize:MAP, buildUnit:BUILD_UNIT,
+    building:cell && cityBuildings.find(b => b.id === cell.buildingId), cell, cellMap:buildMeta});
   buildingGroup.add(mesh);
   buildingMeshes.set(ci, mesh);
 }
@@ -283,6 +313,18 @@ function createEnemyMesh(e){
   entityGroup.add(g);
   enemyMeshMap.set(e, g);
   return g;
+}
+
+function refreshBuildingNeighbours(ci){
+  const x=ci%MAP, y=Math.floor(ci/MAP);
+  for(const [dx,dy] of [[0,-1],[1,0],[0,1],[-1,0]]){
+    const nx=x+dx, ny=y+dy;
+    if(nx<0 || ny<0 || nx>=MAP || ny>=MAP) continue;
+    const ni=ny*MAP+nx;
+    if(map[ni]!==1 || buildDying[ni]>=0) continue;
+    removeBuildingMesh(ni);
+    addBuildingMesh(ni,nx,ny);
+  }
 }
 
 function createPickupMesh(p){
@@ -334,6 +376,15 @@ function getInsultTexture(text){
 }
 
 function createProjMesh(p){
+  if(p.ptype === 'fart'){
+    const cloud = new THREE.Group();
+    for(const [x,y,z,size] of [[0,0,0,0.35],[-0.23,0.12,-0.12,0.25],[0.22,-0.08,0.10,0.24]]){
+      const puff = new THREE.Mesh(new THREE.SphereGeometry(size, 8, 6),
+        new THREE.MeshLambertMaterial({color:0x9ed654,transparent:true,opacity:0.72,depthWrite:false}));
+      puff.position.set(x,y,z); cloud.add(puff);
+    }
+    entityGroup.add(cloud); projMeshMap.set(p, cloud); return cloud;
+  }
   if(p.ptype === 'insult' && p.text){
     const tex = getInsultTexture(p.text);
     const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true }));
@@ -344,8 +395,7 @@ function createProjMesh(p){
   }
   let color = 0xffaa00;
   let size = 0.15;
-  if(p.ptype === 'fart'){ color = 0x66cc33; size = 0.35; }
-  else if(p.ptype === 'insult'){ color = 0xff4444; size = 0.25; }
+  if(p.ptype === 'insult'){ color = 0xff4444; size = 0.25; }
   else if(p.ptype === 'shell'){ color = 0x333333; size = 0.22; }
   const mesh = new THREE.Mesh(
     new THREE.SphereGeometry(size, 8, 8),
@@ -358,6 +408,7 @@ function createProjMesh(p){
 
 // 实体从数组里移除时同步回收它的 Mesh，否则会一直堆在场景里
 function releaseMesh(store, key){
+  if(key.type === 'fartHero') clearHeroWarning(key);
   const mesh = store.get(key);
   if(!mesh) return;
   entityGroup.remove(mesh);
@@ -378,6 +429,46 @@ function disposeEntityVisual(mesh){
     if(o.geometry) o.geometry.dispose();
     if(o.material) o.material.dispose();
   });
+}
+
+function heroPhase(e){
+  if(!e.heroState || e.heroState === 'dead') return 0;
+  const duration = e.heroState === 'charge' ? BALANCE.heroChargeFrames
+    : e.heroState === 'spray' ? BALANCE.heroSprayFrames : BALANCE.heroRecoverFrames;
+  return e.heroState === 'chase' ? 0 : clamp(1 - e.heroStateTimer / duration, 0, 1);
+}
+
+// 后腰排气口和预警都由模型公开的同一局部锚点变换，不再从身体中心发弹。
+function getHeroNozzlePosition(e, facing = e.facing){
+  const anchor = UnitVisual.HERO_NOZZLE;
+  const yaw = -facing + Math.PI / 2, s = BALANCE.heroScale;
+  return {x:e.x + (anchor.x * Math.cos(yaw) + anchor.z * Math.sin(yaw)) * s,
+    y:e.y + (-anchor.x * Math.sin(yaw) + anchor.z * Math.cos(yaw)) * s, z:anchor.y * s};
+}
+
+function clearHeroWarning(e){
+  const strip = heroWarningMap.get(e);
+  if(!strip) return;
+  fxGroup.remove(strip); disposeEntityVisual(strip); heroWarningMap.delete(e);
+}
+
+function syncHeroWarning(e){
+  if(!e.alive || e.heroState !== 'charge'){ clearHeroWarning(e); return; }
+  let strip = heroWarningMap.get(e);
+  if(!strip){
+    strip = new THREE.Group();
+    // 条带宽度就是玩家碰撞半径的两倍，云朵只提供视觉体积。
+    const lane = new THREE.Mesh(new THREE.PlaneGeometry(BALANCE.heroRange, PLAYER_HIT_RADIUS * 2),
+      new THREE.MeshBasicMaterial({color:0x9bd84d,transparent:true,opacity:0.22,depthWrite:false,side:THREE.DoubleSide}));
+    lane.rotation.x = -Math.PI / 2; lane.position.x = BALANCE.heroRange / 2; strip.add(lane);
+    const arrow = new THREE.Mesh(new THREE.ConeGeometry(0.32,0.8,3),
+      new THREE.MeshBasicMaterial({color:0xeaffb4,transparent:true,opacity:0.8,depthWrite:false}));
+    arrow.rotation.z = -Math.PI / 2; arrow.position.x = BALANCE.heroRange - 0.45; strip.add(arrow);
+    fxGroup.add(strip); heroWarningMap.set(e, strip);
+  }
+  const nozzle = getHeroNozzlePosition(e, normAngle(e.attackAngle + Math.PI));
+  strip.position.set(nozzle.x,0.06,nozzle.y); strip.rotation.y = -e.attackAngle;
+  strip.children[0].material.opacity = 0.18 + heroPhase(e) * 0.22;
 }
 
 function syncBuildingVisuals(){
@@ -416,7 +507,7 @@ function syncEntityMeshes(){
     mesh.position.set(e.x, flyY, e.y);
     mesh.rotation.y = -e.facing + Math.PI / 2;
     const scale = e.alive ? 1 : Math.max(0, 1 + e.deathTimer / 20);
-    const typeScale = e.type === 'boss' ? 3 : e.type === 'fartHero' ? 1.4 : e.type === 'tank' ? 1.2 : 1;
+    const typeScale = e.type === 'boss' ? 3 : e.type === 'fartHero' ? BALANCE.heroScale : e.type === 'tank' ? 1.2 : 1;
     mesh.scale.setScalar(scale * typeScale);
     mesh.visible = e.alive || e.deathTimer > -20;
     if(mesh.userData.bossVisual){
@@ -427,9 +518,12 @@ function syncEntityMeshes(){
       UnitVisual.animate(mesh.userData.unitVisual, {
         time:(game ? game.time / 60 : 0) + e.bobPhase * 0.2,
         moving:e.type === 'soldier' ? Math.min(1, (e.walkSpeed || 0) / 0.009) : (e.moving ? 1 : 0),
-        cheering:e.type === 'soldier' && isWorkerCheering(e)
+        cheering:e.type === 'soldier' && isWorkerCheering(e),
+        heroState:e.heroState || 'chase', phase:heroPhase(e),
+        weaknessOpen:e.alive && e.heroState === 'recover', hit:e.hitFlash / 10
       });
     }
+    if(e.type === 'fartHero'){ syncHeroWarning(e); return; }
     // 只在受击变色状态切换时遍历模型树。
     const flashing = e.hitFlash > 0;
     if(mesh.userData.flashing !== flashing){
@@ -456,7 +550,11 @@ function syncEntityMeshes(){
     let mesh = projMeshMap.get(p);
     if(!mesh) mesh = createProjMesh(p);
     mesh.position.set(p.x, p.z || 0.5, p.y);
-    mesh.material.opacity = p.alpha ?? 1;
+    if(p.ptype === 'fart'){
+      mesh.rotation.y = -Math.atan2(p.vy,p.vx);
+      mesh.scale.setScalar(1 + Math.min(0.35,(p.travel || 0) * 0.04));
+      mesh.traverse(o => { if(o.isMesh) o.material.opacity = (p.alpha ?? 1) * 0.72; });
+    }else mesh.material.opacity = p.alpha ?? 1;
   });
 }
 
@@ -482,9 +580,15 @@ function animateGodzillaLegs(){
 }
 
 function updateCamera(){
-  const tx = player.x + CAM_OFFSET.x;
-  const ty = CAM_OFFSET.y;
-  const tz = player.y + CAM_OFFSET.z;
+  const practice = game && game.heroPractice;
+  const hero = practice && enemies.find(e => e.alive && e.type === 'fartHero');
+  // 练习时同时取景双方；窄屏拉远，避免右侧英雄和背部弱点出画。
+  const focusX = hero ? (player.x+hero.x)/2 : player.x;
+  const focusY = hero ? (player.y+hero.y)/2 : player.y;
+  const offset = getCameraOffset(practice);
+  const tx = focusX + offset.x;
+  const ty = offset.y;
+  const tz = focusY + offset.z;
   camera.position.lerp(new THREE.Vector3(tx, ty, tz), 0.12);
   if(player.shakeAmt > 0.05){
     const s = player.shakeAmt * 0.06;
@@ -492,7 +596,7 @@ function updateCamera(){
     camera.position.y += rand(-s, s);
     camera.position.z += rand(-s, s);
   }
-  camera.lookAt(player.x, GODZILLA_H * 0.45, player.y);
+  camera.lookAt(focusX, GODZILLA_H * 0.45, focusY);
   sunLight.position.set(player.x + 20, 35, player.y + 10);
   sunLight.target.position.set(player.x, 0, player.y);
   sunLight.target.updateMatrixWorld();
@@ -593,6 +697,8 @@ function updateVisualEffects(){
       removeBuildingMesh(i);
       map[i] = 0;
       buildHeight[i] = buildHP[i] = buildMaxHP[i] = buildColorId[i] = 0;
+      buildMeta[i]=null; buildRoofWalkable[i]=0;
+      refreshBuildingNeighbours(i);
     }
   }
   fireParticles.forEach(p => {
@@ -671,6 +777,8 @@ const SFX = {
   hurt:      () => sfxTone(220, 0.22, 'sawtooth', 0.35, 70),
   heal:      () => { sfxTone(660, 0.1, 'sine', 0.25); setTimeout(() => sfxTone(990, 0.14, 'sine', 0.22), 90); },
   crit:      () => { sfxTone(160, 0.18, 'sawtooth', 0.4, 900); sfxNoise(0.25, 0.25, 1600, 400); },
+  heroCharge:() => sfxTone(80,0.6,'triangle',0.16,180),
+  heroFart:  () => { sfxTone(140,0.3,'sawtooth',0.24,28); sfxNoise(0.3,0.18,260,65); },
   kill:      () => sfxTone(400, 0.16, 'square', 0.28, 120),
   bossDown:  () => { sfxTone(300, 0.5, 'sawtooth', 0.35, 60); sfxNoise(0.5, 0.3, 700, 120); },
   insult:    () => sfxTone(520, 0.14, 'square', 0.2, 380),
@@ -680,9 +788,12 @@ const SFX = {
 };
 
 function toggleMute(){
+  if(game && game.heroPractice && !audio.ctx){ initAudio(); audio.muted = true; }
   audio.muted = !audio.muted;
   if(audio.master) audio.master.gain.value = audio.muted ? 0 : 0.25;
+  if(!audio.muted && audio.ctx && audio.ctx.state === 'suspended') audio.ctx.resume();
   document.getElementById('mute-button').textContent = audio.muted ? '开启声音' : '静音';
+  document.getElementById('practice-sound').textContent = audio.ctx && !audio.muted ? '关闭声音' : '开启声音';
 }
 
 // ===== UTILS =====
@@ -701,47 +812,30 @@ const buildHeight = [];
 const buildHP = [];
 const buildMaxHP = [];
 const buildDying = [];
-
-const WALL_COLORS = [
-  [118,118,118],[108,108,108],[128,128,128],[98,98,98],
-  [112,112,112],[122,122,122],[104,104,104],[132,132,132]
-];
+const cityBuildings = [];
+const buildMeta = [];
+const buildRoofWalkable = [];
 
 function genMap(){
+  cityBuildings.length=0;
   for(let i = 0; i < MAP * MAP; i++){
     map[i] = 0; buildColorId[i] = 0; buildHeight[i] = 0;
     buildHP[i] = 0; buildMaxHP[i] = 0; buildDying[i] = -1;
-  }
-  const BLOCK_STEP = 11; // 街区间距（约为原先 9 的两倍空隙）
-  for(let by = 0; by < MAP; by += BLOCK_STEP){
-    for(let bx = 0; bx < MAP; bx += BLOCK_STEP){
-      if(bx + 9 >= MAP || by + 9 >= MAP) continue;
-      const offX = randInt(0, 1), offY = randInt(0, 1);
-      const w = randInt(4, 6), h = randInt(4, 6);
-      const cid = randInt(0, WALL_COLORS.length - 1);
-      const bhp = randInt(8, 20);
-      const bht = randInt(2, 5);
-      for(let yy = by + offY; yy < by + offY + h && yy < MAP - 1; yy++){
-        for(let xx = bx + offX; xx < bx + offX + w && xx < MAP - 1; xx++){
-          if(xx < 1 || yy < 1) continue;
-          const ci = yy * MAP + xx;
-          map[ci] = 1;
-          buildColorId[ci] = cid;
-          buildHeight[ci] = bht;
-          buildHP[ci] = bhp;
-          buildMaxHP[ci] = bhp;
-          buildDying[ci] = -1;
-        }
-      }
-    }
+    buildMeta[i]=null; buildRoofWalkable[i]=0;
   }
   const cx = Math.floor(MAP / 2), cy = Math.floor(MAP / 2);
-  for(let dy = -5; dy <= 5; dy++) for(let dx = -5; dx <= 5; dx++){
-    const mx = cx + dx, my = cy + dy;
-    if(mx >= 0 && mx < MAP && my >= 0 && my < MAP){
-      const ci = my * MAP + mx;
-      map[ci] = buildHeight[ci] = buildHP[ci] = buildMaxHP[ci] = 0;
-    }
+  const layout=CityVisual.generateLayout({mapSize:MAP,blockStep:11,random:Math.random,
+    spawnRect:{minX:cx-5,maxX:cx+5,minY:cy-5,maxY:cy+5}});
+  cityBuildings.push(...layout.buildings);
+  const health=new Map(cityBuildings.map(b => [b.id,randInt(8,20)]));
+  for(let ci=0;ci<layout.cells.length;ci++){
+    const cell=layout.cells[ci];
+    if(!cell) continue;
+    const building=cityBuildings.find(b => b.id===cell.buildingId);
+    map[ci]=1; buildMeta[ci]=cell; buildHeight[ci]=cell.floors;
+    buildColorId[ci]=building.paletteId;
+    buildHP[ci]=buildMaxHP[ci]=health.get(cell.buildingId);
+    buildRoofWalkable[ci]=cell.roofWalkable ? 1 : 0;
   }
 }
 
@@ -818,6 +912,7 @@ function canFireHitEnemy(e, fx, fy, d, dirX, dirY){
 function destroyBuilding(ci, game){
   if(map[ci] !== 1 || buildDying[ci] >= 0) return 0;
   buildDying[ci] = 30;
+  buildRoofWalkable[ci]=0;
   const heal = Math.ceil(buildMaxHP[ci] * 1.5);
   player.hp = Math.min(player.maxHp, player.hp + heal);
   game.addScore(buildMaxHP[ci] * 100);
@@ -913,7 +1008,7 @@ const ENEMY_TYPES = {
   soldier:{ hp:2, speed:0.018, damage:0, score:0, shootRate:80, size:0.12 },
   tank:{ hp:10, speed:0.008, damage:12, score:500, shootRate:130, size:0.06 },
   helicopter:{ hp:5, speed:0.025, damage:7, score:300, shootRate:90, size:0.12, flying:true },
-  fartHero:{ hp:20, speed:0.015, damage:15, score:1000, shootRate:100, size:0.16 },
+  fartHero:{ hp:80, speed:0.015, damage:12, score:1000, shootRate:90, size:0.16 },
   // 老板站在楼顶、免疫踩踏，只能用火焰点掉。火焰是每 3 帧结算 2 点，
   // 12 点血约等于 0.3 秒持续命中；血量和伤害随波次成长。
   boss:{ hp:12, speed:0, damage:8, score:800, shootRate:150, size:0.06, onRoof:true }
@@ -925,9 +1020,10 @@ function waveScale(wave){
   return 1 + Math.max(0, wave - 10) * BALANCE.waveGrowth;
 }
 
-function spawnEnemy(type, x, y){
+function spawnEnemy(type, x, y, wave = game ? game.wave : 1){
+  if(type === 'fartHero' && enemies.filter(e => e.alive && e.type === type).length >= BALANCE.heroMaxAlive) return null;
   const t = ENEMY_TYPES[type];
-  const s = waveScale(game ? game.wave : 1);
+  const s = waveScale(wave);
   const hp = Math.round(t.hp * s);
   const e = {
     type, x, y, hp, maxHp:hp, speed:t.speed, damage:Math.round(t.damage * s),
@@ -937,6 +1033,11 @@ function spawnEnemy(type, x, y){
     hitFlash:0, deathTimer:-1
   };
   if(type === 'helicopter') e.z = 5;
+  if(type === 'fartHero'){
+    e.heroState = 'chase'; e.heroStateTimer = 0;
+    e.moveAngle = e.facing; e.attackAngle = e.facing;
+    e.shootTimer = 30;
+  }
   if(type === 'boss'){
     const mx = Math.floor(x), my = Math.floor(y);
     const ci = my * MAP + mx;
@@ -946,6 +1047,7 @@ function spawnEnemy(type, x, y){
     e.tauntTimer = 0;
   }
   enemies.push(e);
+  return e;
 }
 
 // 统一的击杀结算：火焰和踩踏共用，保证掉落一致
@@ -953,6 +1055,7 @@ function killEnemy(e, game){
   if(!e.alive) return;
   e.alive = false;
   e.deathTimer = 0;
+  if(e.type === 'fartHero'){ e.heroState = 'dead'; e.heroStateTimer = 0; clearHeroWarning(e); }
   game.addScore(e.score);
   if(e.type === 'boss'){
     for(let pi = 0; pi < BALANCE.bossPickups; pi++){
@@ -963,7 +1066,7 @@ function killEnemy(e, game){
   }else if(e.type === 'fartHero'){
     pickups.push({ x:e.x, y:e.y, alive:true, life:BALANCE.pickupLife, healAmount:BALANCE.fartHeal });
     SFX.kill();
-    pushEffect('kill', 40, '放屁侠已沉默!');
+    pushEffect('kill', 40, '菊花侠哑火了! +15HP血包');
   }else if(e.type === 'tank'){
     pickups.push({ x:e.x, y:e.y, alive:true, life:BALANCE.tankPickupLife, healAmount:BALANCE.tankHeal });
   }
@@ -981,7 +1084,29 @@ function getSpawnPos(range){
   return null;
 }
 
+function getFirstHeroSpawnPos(){
+  for(let tries = 0; tries < 60; tries++){
+    const angle = rand(0,Math.PI * 2), distance = rand(4.5,7.5);
+    const x = player.x + Math.cos(angle) * distance, y = player.y + Math.sin(angle) * distance;
+    if(x < 1 || y < 1 || x >= MAP - 1 || y >= MAP - 1) continue;
+    if(canOccupy(x,y,0.45) && hasClearGroundLine(player.x,player.y,x,y)) return {x,y};
+  }
+  return null;
+}
+
 const BOSS_MIN_GAP = 5; // 老板不会自己消失，不留间距的话会在同一片楼顶叠成一堆
+
+function isRoofSafe(mx,my){
+  if(mx<=0 || my<=0 || mx>=MAP-1 || my>=MAP-1 || !isWall(mx,my)) return false;
+  const center=my*MAP+mx, height=buildHeight[center], meta=buildMeta[center];
+  for(let oy=-1;oy<=1;oy++) for(let ox=-1;ox<=1;ox++){
+    const ci=(my+oy)*MAP+mx+ox;
+    if(!isWall(mx+ox,my+oy) || buildHeight[ci]!==height) return false;
+    if(meta && (!buildMeta[ci] || buildMeta[ci].buildingId!==meta.buildingId || !buildRoofWalkable[ci])) return false;
+    if(!meta && buildMeta[ci]) return false;
+  }
+  return true;
+}
 
 function getRoofPos(){
   for(let tries = 0; tries < 60; tries++){
@@ -991,14 +1116,8 @@ function getRoofPos(){
     const sy = player.y + Math.sin(a) * d;
     const mx = Math.floor(sx), my = Math.floor(sy);
     if(mx <= 0 || my <= 0 || mx >= MAP - 1 || my >= MAP - 1) continue;
-    if(map[my * MAP + mx] !== 1) continue;
+    if(!isRoofSafe(mx,my)) continue;
     const height = buildHeight[my * MAP + mx];
-    let safe = true;
-    for(let oy = -1; oy <= 1; oy++) for(let ox = -1; ox <= 1; ox++){
-      const ci = (my + oy) * MAP + mx + ox;
-      if(!isWall(mx + ox, my + oy) || buildHeight[ci] !== height) safe = false;
-    }
-    if(!safe) continue;
     const x = mx + 0.5, y = my + 0.5;
     if(enemies.some(e => e.alive && e.type === 'boss' && dist2(e.x, e.y, x, y) < BOSS_MIN_GAP)) continue;
     return { x, y, z:height * BUILD_UNIT };
@@ -1026,6 +1145,26 @@ function hasClearGroundLine(x1, y1, x2, y2){
     if(isWall(Math.floor(lerp(x1, x2, t)), Math.floor(lerp(y1, y2, t)))) return false;
   }
   return true;
+}
+
+// 当帧线段与楼格相交，避免短斜线从楼角进入又离开而只检查终点漏判。
+function projectileBuildingHit(x1,y1,x2,y2,height){
+  let first = null;
+  for(let y = Math.floor(Math.min(y1,y2)); y <= Math.floor(Math.max(y1,y2)); y++){
+    for(let x = Math.floor(Math.min(x1,x2)); x <= Math.floor(Math.max(x1,x2)); x++){
+      if(x < 0 || y < 0 || x >= MAP || y >= MAP || !isWall(x,y) || height >= buildHeight[y*MAP+x]*BUILD_UNIT) continue;
+      let enter = 0, leave = 1;
+      for(const [start,delta,low] of [[x1,x2-x1,x],[y1,y2-y1,y]]){
+        if(Math.abs(delta) < 1e-12){ if(start < low || start >= low+1){ enter = 2; break; } }
+        else {
+          const a = (low-start)/delta, b = (low+1-start)/delta;
+          enter = Math.max(enter,Math.min(a,b)); leave = Math.min(leave,Math.max(a,b));
+        }
+      }
+      if(enter <= leave && enter <= 1 && leave >= 0 && (first === null || enter < first)) first = enter;
+    }
+  }
+  return first;
 }
 
 function isWorkerCheering(e){
@@ -1057,10 +1196,31 @@ function drawWorkerLabels(){
   X.textAlign = 'left';
 }
 
+function drawHeroLabels(){
+  X.textAlign = 'center'; X.font = 'bold 12px system-ui';
+  for(const e of enemies){
+    if(!e.alive || e.type !== 'fartHero' || dist2(player.x,player.y,e.x,e.y) > 14 ||
+      !hasClearGroundLine(player.x,player.y,e.x,e.y)) continue;
+    workerLabelPoint.set(e.x,3.2,e.y).project(camera);
+    if(workerLabelPoint.z < -1 || workerLabelPoint.z > 1) continue;
+    const x = (workerLabelPoint.x * 0.5 + 0.5) * H.width;
+    const y = (-workerLabelPoint.y * 0.5 + 0.5) * H.height;
+    if(x < 57 || x > H.width - 57 || y < 90 || y > H.height - 110) continue;
+    const names = {chase:'菊花侠',charge:'蓄气 · 快闪开!',spray:'喷屁!',recover:'破绽 · 绕后 ×5'};
+    X.fillStyle = 'rgba(29,23,45,0.9)'; X.fillRect(x-56,y-23,112,31);
+    X.fillStyle = e.heroState === 'recover' ? '#ffe588' : '#ccf2a0';
+    X.fillText(names[e.heroState] || '菊花侠',x,y-7);
+    X.fillStyle = '#42394e'; X.fillRect(x-49,y+1,98,3);
+    X.fillStyle = '#cda1ef'; X.fillRect(x-49,y+1,98 * clamp(e.hp/e.maxHp,0,1),3);
+  }
+  X.textAlign = 'left';
+}
+
 function drawHUD(){
   const w = H.width, h = H.height;
   X.clearRect(0, 0, w, h);
   drawWorkerLabels();
+  drawHeroLabels();
 
   // 固定信息使用深色底板，避免浅色道路和屋顶吞掉白字。
   X.fillStyle = 'rgba(10,25,36,0.87)';
@@ -1085,10 +1245,10 @@ function drawHUD(){
   X.fillText(`分数 ${player.score}`, w - 23, 38);
   X.font = '13px system-ui';
   X.fillStyle = '#d1dce5';
-  X.fillText(`第 ${game.wave} 波`, w - 23, 59);
+  X.fillText(game.heroPractice ? '菊花侠练习' : `第 ${game.wave} 波`, w - 23, 59);
   X.fillStyle = player.score > highScore ? '#91e8bd' : '#a9bdcc';
   X.font = '11px system-ui';
-  X.fillText(player.score > highScore ? `新纪录 ${player.score}` : `最高 ${highScore}`, w - 23, 77);
+  X.fillText(game.heroPractice ? '练习不计纪录' : player.score > highScore ? `新纪录 ${player.score}` : `最高 ${highScore}`, w - 23, 77);
   if(audio.muted){
     X.fillStyle = '#ffc0ac';
     X.fillText('静音中 [M]', w - 23, 94);
@@ -1158,7 +1318,7 @@ function drawHUD(){
     X.fillRect(0, 0, w, h);
   }
   if(player.fartDebuff > 0){
-    X.fillStyle = `rgba(80,200,40,${player.fartDebuff / 25 * 0.25})`;
+    X.fillStyle = `rgba(80,200,40,${clamp(player.fartDebuff / BALANCE.fartDebuffFrames,0,1) * 0.16})`;
     X.fillRect(0, 0, w, h);
   }
   // 受伤闪红已经是 0.35，两层红叠上去整个画面会糊成一片，所以错开来画
@@ -1202,6 +1362,8 @@ function drawHUD(){
 // ===== GAME =====
 let game = null;
 let paused = false;
+const HERO_PRACTICE_REQUESTED = /(?:[?&])heroPractice=1(?:&|$)/.test(window.location ? window.location.search : '');
+let practiceAutoFire = false;
 
 // ===== 最高分持久化 =====
 const HIGHSCORE_KEY = 'kaiju-destroyer-highscore';
@@ -1240,23 +1402,38 @@ function clearDynamicMeshes(){
   });
   fireParticles.forEach(releaseFireParticle);
   fireParticles = [];
+  heroWarningMap.clear();
 }
 
 class Game{
-  constructor(){
+  constructor({heroPractice = false} = {}){
     resetInputState();
     resetFrameClock();
     genMap();
     resetPlayer();
+    this.heroPractice = heroPractice;
+    if(heroPractice){
+      map.fill(0); buildHeight.fill(0); buildHP.fill(0); buildMaxHP.fill(0); buildDying.fill(-1);
+      buildColorId.fill(0); buildMeta.fill(null); buildRoofWalkable.fill(0); cityBuildings.length=0;
+      player.x = MAP / 2; player.y = MAP / 2; player.aimAngle = 0;
+    }
     enemies = []; projectiles = []; pickups = []; effects = [];
     this.wave = 1; this.waveTimer = 0; this.spawnTimer = 0; this.time = 0; this.running = true;
     this.bossSpawnTimer = 150;
+    this.heroIntroduced = false;
     shadowCullTick = -1;
     if(!renderer) initThree();
     clearDynamicMeshes();
     buildCityMeshes();
-    camera.position.set(player.x + CAM_OFFSET.x, CAM_OFFSET.y, player.y + CAM_OFFSET.z);
-    camera.lookAt(player.x, GODZILLA_H * 0.45, player.y);
+    const offset = getCameraOffset(heroPractice);
+    const focusX = player.x + (heroPractice ? 3 : 0);
+    camera.position.set(focusX + offset.x, offset.y, player.y + offset.z);
+    camera.lookAt(focusX, GODZILLA_H * 0.45, player.y);
+    if(heroPractice){
+      const e = spawnEnemy('fartHero',player.x+6,player.y,this.wave);
+      e.facing = Math.PI; e.moveAngle = e.facing;
+      this.heroIntroduced = true;
+    }
   }
 
   update(){
@@ -1266,20 +1443,24 @@ class Game{
 
     updateAimFromMouse();
 
-    this.waveTimer++;
-    if(this.waveTimer > 900){ this.waveTimer = 0; this.wave++; SFX.wave(); }
+    if(!this.heroPractice){
+      this.waveTimer++;
+      if(this.waveTimer > 900){ this.waveTimer = 0; this.wave++; SFX.wave(); }
+    }
 
     this.updatePlayer();
+    // 上一帧已有的减速用于本次移动后才衰减；新命中的90帧从下一次移动开始计算。
+    if(player.fartDebuff > 0) player.fartDebuff--;
     player.cheerCount = countCheeringWorkers();
 
     this.spawnTimer--;
-    if(this.spawnTimer <= 0){
+    if(!this.heroPractice && this.spawnTimer <= 0){
       this.spawnTimer = Math.max(40, 130 - this.wave * 6);
       this.spawnWaveEnemies();
     }
 
     this.bossSpawnTimer--;
-    if(this.bossSpawnTimer <= 0){
+    if(!this.heroPractice && this.bossSpawnTimer <= 0){
       this.bossSpawnTimer = Math.max(100, 250 - this.wave * 15);
       const rp = getRoofPos();
       if(rp) spawnEnemy('boss', rp.x, rp.y);
@@ -1317,7 +1498,7 @@ class Game{
       return false;
     });
 
-    if(player.fireCD <= 0) this.doFireBreath();
+    if(player.fireCD <= 0 && (!this.heroPractice || practiceAutoFire)) this.doFireBreath();
     if(player.fireCD > 0) player.fireCD--;
 
     if(player.stompFrame > 0){
@@ -1326,7 +1507,6 @@ class Game{
     }
     if(player.stompCD > 0) player.stompCD--;
 
-    if(player.fartDebuff > 0) player.fartDebuff--;
     if(player.insultDebuff > 0) player.insultDebuff--;
     if(player.damageFlash > 0) player.damageFlash--;
     if(player.shakeAmt > 0) player.shakeAmt *= 0.85;
@@ -1339,7 +1519,12 @@ class Game{
 
     if(this.time % 60 === 0) player.score += 10;
     updateCamera();
-    if(player.hp <= 0){ this.running = false; SFX.gameover(); }
+    if(this.heroPractice) updatePracticeReadout();
+    if(player.hp <= 0){
+      this.running = false;
+      for(const e of [...heroWarningMap.keys()]) clearHeroWarning(e);
+      SFX.gameover();
+    }
   }
 
   updatePlayer(){
@@ -1390,7 +1575,7 @@ class Game{
         if(!canFireHitEnemy(e, fx, fy, d, dirX, dirY)) return;
         hitEnemy = true;
         let dmg = BALANCE.fireDamage * morale;
-        if(e.type === 'fartHero'){
+        if(e.type === 'fartHero' && e.heroState === 'recover'){
           const angleToPlayer = Math.atan2(player.y - e.y, player.x - e.x);
           if(Math.cos(normAngle(angleToPlayer - e.facing)) < BALANCE.critAngleCos){
             dmg *= BALANCE.critMult;
@@ -1440,8 +1625,65 @@ class Game{
       if(dist2(player.x, player.y, e.x, e.y) < radius && !e.onRoof && !e.flying){
         e.hp -= BALANCE.stompDamage; e.hitFlash = 10;
         if(e.hp <= 0) killEnemy(e, this);
+        else if(e.type === 'fartHero' && (e.heroState === 'charge' || e.heroState === 'spray')){
+          this.enterHeroState(e,'recover');
+          pushEffect('interrupt',45,'技能被打断! 绕后 ×5');
+        }
       }
     });
+  }
+
+  enterHeroState(e,state){
+    if(!e.alive) return;
+    e.heroState = state; e.moving = false;
+    if(state === 'charge'){
+      e.heroStateTimer = BALANCE.heroChargeFrames;
+      e.attackAngle = Math.atan2(player.y-e.y,player.x-e.x);
+      SFX.heroCharge();
+    }else if(state === 'spray'){
+      e.heroStateTimer = BALANCE.heroSprayFrames;
+      e.facing = normAngle(e.attackAngle + Math.PI);
+      const origin = getHeroNozzlePosition(e);
+      projectiles.push({x:origin.x,y:origin.y,z:origin.z,
+        vx:Math.cos(e.attackAngle)*BALANCE.heroProjectileSpeed,vy:Math.sin(e.attackAngle)*BALANCE.heroProjectileSpeed,
+        ptype:'fart',damage:e.damage,alive:true,life:Math.ceil(BALANCE.heroRange/BALANCE.heroProjectileSpeed)+1,
+        travel:0,maxTravel:BALANCE.heroRange,alpha:1});
+      SFX.heroFart();
+    }else if(state === 'recover') e.heroStateTimer = BALANCE.heroRecoverFrames;
+    else { e.heroStateTimer = 0; e.shootTimer = BALANCE.heroCooldownFrames; }
+    if(state !== 'charge') clearHeroWarning(e);
+  }
+
+  updateFartHero(e){
+    if(e.heroState !== 'chase'){
+      e.moving = false;
+      if(e.heroState === 'charge'){
+        const target = normAngle(e.attackAngle+Math.PI), diff = normAngle(target-e.facing);
+        const maxTurn = Math.PI/BALANCE.heroChargeFrames;
+        e.facing = normAngle(e.facing+clamp(diff,-maxTurn,maxTurn));
+      }
+      e.heroStateTimer--;
+      if(e.heroStateTimer <= 0){
+        this.enterHeroState(e,e.heroState === 'charge' ? 'spray' : e.heroState === 'spray' ? 'recover' : 'chase');
+      }
+      return;
+    }
+    const toPlayer = Math.atan2(player.y-e.y,player.x-e.x), distance = dist2(player.x,player.y,e.x,e.y);
+    const diff = normAngle(toPlayer-e.facing);
+    e.facing = normAngle(e.facing+clamp(diff,-BALANCE.fartTurnRate,BALANCE.fartTurnRate));
+    if(e.shootTimer > 0) e.shootTimer--;
+    if(e.shootTimer <= 0 && distance <= BALANCE.heroRange && hasClearGroundLine(e.x,e.y,player.x,player.y)){
+      this.enterHeroState(e,'charge'); return;
+    }
+    const beforeX = e.x, beforeY = e.y;
+    if(distance > 3.5){
+      for(const offset of [0,0.8,-0.8,1.6,-1.6,2.4,-2.4]){
+        const angle = toPlayer+offset, nx = e.x+Math.cos(angle)*e.speed, ny = e.y+Math.sin(angle)*e.speed;
+        if(!canOccupy(nx,ny,0.35)) continue;
+        e.x = nx; e.y = ny; e.moveAngle = angle; break;
+      }
+    }
+    e.moving = dist2(beforeX,beforeY,e.x,e.y) > 0.0001;
   }
 
   updateEnemy(e){
@@ -1451,11 +1693,7 @@ class Game{
     const dx = player.x - e.x, dy = player.y - e.y;
     const d = Math.hypot(dx, dy);
     const toPlayer = Math.atan2(dy, dx);
-    if(e.type === 'fartHero'){
-      // 转身有延迟，玩家绕圈就能咬到它背后打菊花暴击
-      const diff = normAngle(toPlayer - e.facing);
-      e.facing = normAngle(e.facing + clamp(diff, -BALANCE.fartTurnRate, BALANCE.fartTurnRate));
-    }else if(e.type !== 'soldier'){
+    if(e.type !== 'soldier' && e.type !== 'fartHero'){
       e.facing = toPlayer;
     }
     e.bobPhase += 0.05;
@@ -1464,8 +1702,10 @@ class Game{
       // 脱离视野范围：原地淡出缩小离场，而不是凭空消失。
       // deathTimer 从 0 递减到 -20，syncEntityMeshes 会据此做缩小淡出动画。
       e.alive = false; e.deathTimer = 0;
+      if(e.type === 'fartHero'){ e.heroState = 'dead'; clearHeroWarning(e); }
       return;
     }
+    if(e.type === 'fartHero'){ this.updateFartHero(e); return; }
 
     // 脚下的楼塌了就摔到地面，落地后可以被踩踏命中
     if(e.onRoof){
@@ -1502,7 +1742,7 @@ class Game{
         e.walkSpeed = dist2(beforeX, beforeY, e.x, e.y);
         e.workerState = isWorkerCheering(e) ? 'cheer' : 'patrol';
       }else{
-        const keepDist = e.type === 'tank' ? 6 : e.type === 'fartHero' ? 3 : 2;
+        const keepDist = e.type === 'tank' ? 6 : 2;
         if(d > keepDist + 0.5){
           // 沿墙滑动：撞墙时按递增角度试探，选第一个能前进且最接近目标的方向，
           // 比原来固定偏 0.8 弧度更能绕开街角，避免卡住。
@@ -1535,9 +1775,7 @@ class Game{
     e.shootTimer--;
     if(e.shootTimer <= 0 && d < BALANCE.enemyShootDist && e.type !== 'soldier'){
       e.shootTimer = e.shootRate + randInt(-10, 10);
-      if(e.type === 'fartHero'){
-        projectiles.push({ x:e.x, y:e.y, z:1.5, vx:Math.cos(e.facing) * 0.06, vy:Math.sin(e.facing) * 0.06, ptype:'fart', damage:e.damage, alive:true, life:Math.ceil(d / 0.06) + 25, alpha:1 });
-      }else if(e.type === 'boss'){
+      if(e.type === 'boss'){
         const word = e.insultWords[e.insultTimer % e.insultWords.length];
         e.insultTimer++;
         e.tauntTimer = 32;
@@ -1548,12 +1786,15 @@ class Game{
         const frames = Math.max(20, d / speed);
         let cruiseDistance = 0;
         if(e.onRoof){
-          const sourceFloors = buildHeight[Math.floor(e.y) * MAP + Math.floor(e.x)];
+          const sourceCell=Math.floor(e.y)*MAP+Math.floor(e.x);
+          const sourceFloors=buildHeight[sourceCell], sourceMeta=buildMeta[sourceCell];
           for(let travel = 0.25; travel < d; travel += 0.25){
             const tx = Math.floor(e.x + Math.cos(e.facing) * travel);
             const ty = Math.floor(e.y + Math.sin(e.facing) * travel);
             cruiseDistance = travel;
-            if(!isWall(tx, ty) || buildHeight[ty * MAP + tx] !== sourceFloors) break;
+            const ci=ty*MAP+tx;
+            if(!isWall(tx,ty) || buildHeight[ci]!==sourceFloors ||
+              (sourceMeta && buildMeta[ci]?.buildingId!==sourceMeta.buildingId)) break;
           }
         }
         const cruiseFrames = Math.ceil(cruiseDistance / speed);
@@ -1567,12 +1808,29 @@ class Game{
 
   updateProjectile(p){
     if(!p.alive) return;
-    p.x += p.vx; p.y += p.vy;
+    const previousX = p.x, previousY = p.y;
+    let rangeEnded = false;
+    if(p.maxTravel !== undefined){
+      const speed = Math.hypot(p.vx,p.vy), travel = p.travel || 0;
+      const step = Math.min(speed,Math.max(0,p.maxTravel-travel));
+      if(speed <= 0 || step <= 0){ p.alive = false; return; }
+      p.x += p.vx*step/speed; p.y += p.vy*step/speed;
+      p.travel = Math.min(p.maxTravel,travel+step);
+      rangeEnded = p.travel >= p.maxTravel-1e-9;
+    }else { p.x += p.vx; p.y += p.vy; }
     if(p.cruiseFrames > 0) p.cruiseFrames--;
     else if(p.vz) p.z = Math.max(0.2, (p.z || 0) + p.vz);
     p.life--;
-    if(p.life <= 0){ p.alive = false; return; }
+    if(p.life <= 0 && p.maxTravel === undefined){ p.alive = false; return; }
     p.alpha = clamp(p.life / 20, 0, 1);
+
+    if(p.ptype === 'fart'){
+      const hit = projectileBuildingHit(previousX,previousY,p.x,p.y,p.z || 0);
+      if(hit !== null){
+        p.x = lerp(previousX,p.x,hit); p.y = lerp(previousY,p.y,hit);
+        p.alive = false; return;
+      }
+    }
 
     // 实体不能先于挡在前面的楼接到弹道；楼顶以上的弹幕仍可掠过。
     const cellX = Math.floor(p.x), cellY = Math.floor(p.y);
@@ -1593,7 +1851,7 @@ class Game{
       player.comboTimer = 0;
       SFX.hurt();
       if(p.ptype === 'fart'){
-        player.fartDebuff = 25;
+        player.fartDebuff = BALANCE.fartDebuffFrames;
         pushEffect('fart', 40, '被屁熏了! -' + dmg + 'HP');
       }else if(p.ptype === 'insult'){
         player.insultDebuff = 20;
@@ -1615,11 +1873,24 @@ class Game{
         return;
       }
     }
+    if(rangeEnded || p.life <= 0) p.alive = false;
+  }
 
-
+  spawnFirstHero(){
+    if(this.wave < 3 || this.heroIntroduced) return false;
+    const position = getFirstHeroSpawnPos();
+    if(!position) return false;
+    const hero = spawnEnemy('fartHero',position.x,position.y);
+    if(!hero) return false;
+    hero.facing = Math.atan2(player.y-hero.y,player.x-hero.x); hero.moveAngle = hero.facing;
+    this.heroIntroduced = true;
+    pushEffect('hero-intro',180,'菊花侠来了! 躲喷屁，喘气绕后 ×5');
+    document.getElementById('game-status').textContent = '菊花侠出现。躲开绿色预警，喘气时绕后喷火，踩踏可以打断蓄气。';
+    return true;
   }
 
   spawnWaveEnemies(){
+    this.spawnFirstHero();
     // 前 8 波按原节奏铺开，之后每 6 波多一个，上限 10——
     // 再多就只是刷屏，压力交给 waveScale 的属性成长
     const base = Math.min(2 + Math.floor(this.wave / 2), 6);
@@ -1637,17 +1908,13 @@ class Game{
         if(r < 0.25) spawnEnemy('soldier', pos.x, pos.y);
         else if(r < 0.45) spawnEnemy('tank', pos.x, pos.y);
         else if(r < 0.65) spawnEnemy('helicopter', pos.x, pos.y);
-        else spawnEnemy('fartHero', pos.x, pos.y);
+        else if(!this.heroIntroduced || !spawnEnemy('fartHero', pos.x, pos.y)) spawnEnemy(Math.random()<0.5 ? 'tank' : 'helicopter',pos.x,pos.y);
       }else{
         // 高波次不再刷打工人，编制换成火力
         if(r < 0.3) spawnEnemy('tank', pos.x, pos.y);
         else if(r < 0.6) spawnEnemy('helicopter', pos.x, pos.y);
-        else spawnEnemy('fartHero', pos.x, pos.y);
+        else if(!this.heroIntroduced || !spawnEnemy('fartHero', pos.x, pos.y)) spawnEnemy(Math.random()<0.5 ? 'tank' : 'helicopter',pos.x,pos.y);
       }
-    }
-    if(this.wave >= 3 && Math.random() < 0.3){
-      const pos = getSpawnPos(12);
-      if(pos) spawnEnemy('fartHero', pos.x, pos.y);
     }
   }
 
@@ -1663,9 +1930,12 @@ class Game{
     drawHUD();
     effects.forEach((e, idx) => {
       X.fillStyle = e.type === 'crit' ? '#ff0' : e.type === 'heal' ? '#4f4' : e.type === 'destroy' ? '#ff8' : e.type === 'boss' ? '#f44' : '#fff';
-      X.font = 'bold 18px Courier New';
+      X.font = 'bold 18px system-ui';
+      const width = X.measureText(e.text).width;
+      if(width > H.width-28) X.font = 'bold ' + Math.max(10,18*(H.width-28)/width) + 'px system-ui';
       X.textAlign = 'center';
-      X.fillText(e.text, H.width / 2, H.height * 0.25 - idx * 25 + (40 - e.timer) * 0.5);
+      const effectY = this.heroPractice && H.width < 600 ? Math.max(250,H.height*0.28) : H.height*0.25;
+      X.fillText(e.text, H.width / 2, effectY - idx * 25 + Math.max(0,40 - e.timer) * 0.5);
       X.textAlign = 'left';
     });
   }
@@ -1823,15 +2093,17 @@ function drawJoystick(){
 // ===== LOOP =====
 function drawPauseOverlay(){
   const w = H.width, h = H.height;
-  X.fillStyle = 'rgba(0,0,0,0.55)';
+  const practice = game && game.heroPractice;
+  X.fillStyle = practice ? 'rgba(0,0,0,0.2)' : 'rgba(0,0,0,0.55)';
   X.fillRect(0, 0, w, h);
   X.fillStyle = '#ffaa00';
-  X.font = 'bold 42px Courier New';
+  X.font = practice ? 'bold 24px system-ui' : 'bold 42px Courier New';
   X.textAlign = 'center';
-  X.fillText('已暂停', w / 2, h / 2 - 10);
+  const textY = practice ? (w < 600 ? 220 : 116) : h/2-10;
+  X.fillText('已暂停', w / 2, textY);
   X.fillStyle = '#aaa';
   X.font = '15px Courier New';
-  X.fillText(w < 600 ? '点「继续」恢复游戏' : '按 P 或 Esc 继续', w / 2, h / 2 + 28);
+  X.fillText(w < 600 ? '点「继续」恢复游戏' : '按 P 或 Esc 继续', w / 2, textY + 38);
   X.textAlign = 'left';
 }
 
@@ -1870,10 +2142,11 @@ function loop(timestamp = 0){
       game.draw();
     }
   }else if(game && !game.running){
-    const isRecord = saveHighScore(player.score);
+    const practice = game.heroPractice;
+    const isRecord = !practice && saveHighScore(player.score);
     document.getElementById('final-score').innerHTML =
-      `最终分数: ${player.score}  |  波次: ${game.wave}<br>` +
-      (isRecord ? '<span style="color:#4f4">新纪录!</span>' : `历史最高: ${highScore}`);
+      (practice ? '练习结束。重新练习，试试闪避后绕后喷火!<br>' : `最终分数: ${player.score}  |  波次: ${game.wave}<br>`) +
+      (practice ? '' : (isRecord ? '<span style="color:#4f4">新纪录!</span>' : `历史最高: ${highScore}`));
     document.getElementById('gameover-screen').classList.remove('hidden');
     document.getElementById('touch-controls').classList.add('hidden');
     document.getElementById('game-status').textContent = `游戏结束，分数 ${player.score}，波次 ${game.wave}`;
@@ -1893,6 +2166,7 @@ function togglePause(){
   if(!game || !game.running) return;
   paused = !paused;
   document.getElementById('pause-button').textContent = paused ? '继续' : '暂停';
+  document.getElementById('practice-pause').textContent = paused ? '继续练习' : '暂停练习';
   document.getElementById('game-status').textContent = paused ? '游戏已暂停' : '游戏继续';
   resetInputState();
   resetFrameClock();
@@ -1905,21 +2179,57 @@ function togglePause(){
   }
 }
 
-function startGame(){
+function startGame({heroPractice = HERO_PRACTICE_REQUESTED} = {}){
   document.getElementById('start-screen').classList.add('hidden');
   document.getElementById('gameover-screen').classList.add('hidden');
-  initAudio();                 // 必须在用户手势里创建，否则被浏览器自动播放策略拦掉
+  if(!heroPractice) initAudio(); // 练习场自动载入时等声音按钮的用户手势再创建音频。
   if(audio.ctx && audio.ctx.state === 'suspended') audio.ctx.resume();
   paused = false;
   document.getElementById('touch-controls').classList.remove('hidden');
   document.getElementById('pause-button').textContent = '暂停';
   document.getElementById('mute-button').textContent = audio.muted ? '开启声音' : '静音';
   document.getElementById('game-status').textContent = '游戏开始。打工人是友军，靠近可获得助威。';
-  game = new Game();
+  document.getElementById('practice-controls').classList.toggle('hidden',!heroPractice);
+  document.getElementById('practice-pause').textContent = '暂停练习';
+  document.getElementById('practice-fire').checked = practiceAutoFire;
+  game = new Game({heroPractice});
+  if(heroPractice){
+    document.getElementById('game-status').textContent = '菊花侠练习场。先观察喷气，再开启自动喷火练习反击。';
+    updatePracticeReadout();
+  }
 }
+
+function updatePracticeReadout(){
+  const state = HeroPractice.getState();
+  const names = {chase:'追击',charge:'蓄气',spray:'喷气',recover:'喘气 · 绕后 ×5',defeated:'菊花侠已击败'};
+  document.getElementById('practice-readout').textContent =
+    (names[state.heroState] || '练习结束') + ' · 菊花侠 ' + Math.max(0,Math.ceil(state.hp)) + '/' + state.maxHp +
+    ' · 巨兽 ' + Math.max(0,Math.ceil(state.playerHp)) + 'HP';
+}
+
+// 预览页和独立练习入口调用正式 Game；练习分数不会写入最高分。
+const HeroPractice = window.HeroPractice = Object.freeze({
+  restart(){ startGame({heroPractice:true}); },
+  pause(value){
+    if(typeof value !== 'boolean' || value !== paused) togglePause();
+    return paused;
+  },
+  setAutoFire(value){
+    practiceAutoFire = !!value;
+    document.getElementById('practice-fire').checked = practiceAutoFire;
+  },
+  getState(){
+    const hero = enemies.find(e => e.type === 'fartHero' && e.alive);
+    return {running:!!game && game.running,paused,autoFire:practiceAutoFire,
+      heroState:hero ? hero.heroState : 'defeated',stateTimer:hero ? hero.heroStateTimer : 0,
+      hp:hero ? hero.hp : 0,maxHp:hero ? hero.maxHp : ENEMY_TYPES.fartHero.hp,
+      playerHp:player.hp,time:game ? game.time : 0,projectiles:projectiles.filter(p => p.alive).length};
+  }
+});
 
 loadHighScore();
 initThree();
+if(HERO_PRACTICE_REQUESTED) startGame({heroPractice:true});
 loop();
 </script>
 </body>

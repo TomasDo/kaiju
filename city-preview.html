@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>商业城 · 八款建筑展示</title>
+<style>
+:root{color-scheme:light;--paper:#f4f0e7;--ink:#293c4b;--muted:#75808a;--line:#d6d7cc;--blue:#397f9b;--sun:#eebc52}*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font:14px/1.6 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}button,input,a{font:inherit}a{color:inherit;text-decoration:none}a:hover{text-decoration:underline}button{cursor:pointer}button:disabled{cursor:default;opacity:.42}button:focus-visible,input:focus-visible,a:focus-visible,canvas:focus-visible,summary:focus-visible{outline:3px solid #4c91a6;outline-offset:4px}.header{max-width:1440px;margin:auto;padding:18px 32px;display:flex;justify-content:space-between;align-items:center;gap:16px;border-bottom:1px solid var(--line)}.brand{font-size:11px;font-weight:750;letter-spacing:1.8px}.nav{display:flex;gap:22px;font-size:12px}.intro{max-width:1440px;padding:28px 32px 23px;margin:auto;display:flex;justify-content:space-between;align-items:flex-end;gap:24px}.eyebrow{color:var(--blue);font-size:10px;font-weight:650;letter-spacing:1.6px;margin:0 0 8px}h1{font-size:39px;letter-spacing:-1.8px;line-height:1.3;margin:0}.intro p:last-child{color:var(--muted);font-size:12px;line-height:1.9;margin:10px 0 0;max-width:550px}.intro-mark{display:flex;gap:30px;flex-shrink:0}.intro-mark strong{display:block;font-size:27px;line-height:1.2;letter-spacing:-1px}.intro-mark span{font-size:10px;color:var(--muted)}.stage-section{max-width:1440px;margin:auto;padding:0 32px}.stage-toolbar{display:flex;gap:16px;justify-content:space-between;align-items:center;margin-bottom:13px;flex-wrap:wrap}.mode-tabs{display:flex;gap:4px;padding:4px;background:#e5e6dc;border-radius:10px}.mode-tabs button{border:0;border-radius:7px;background:transparent;color:#697783;font-size:12px;padding:8px 17px}.mode-tabs button[aria-pressed=true]{background:#fffdf6;box-shadow:0 2px 5px #3b4c4410;color:#29495c}.stage-context{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.context-label{font-size:11px;color:var(--muted)}.palettes{display:flex;gap:4px}.palettes button{border:1px solid #ccd2c7;background:#faf9f1;border-radius:6px;padding:6px 9px;font-size:10px;color:#65737c}.palettes button[aria-pressed=true]{background:#32566b;border-color:#32566b;color:white}.seed-control{display:none;align-items:center;gap:7px;color:var(--muted);font-size:11px}.seed-control.visible{display:flex}.seed-control input{width:88px;min-width:0;border:1px solid #c6d0c8;border-radius:6px;background:#fffdf6;padding:5px 8px;color:#345568;font-size:11px}.seed-control button{border:1px solid #c6d0c8;border-radius:6px;background:#fffdf6;padding:5px 10px;font-size:11px;color:#345568}.stage{position:relative;height:575px;background:#dce5e4;border:1px solid #c5d1cd;border-radius:16px;overflow:hidden}.stage canvas{width:100%;height:100%;display:block;touch-action:none;cursor:grab}.stage canvas:active{cursor:grabbing}.stage-top{position:absolute;top:20px;left:23px;right:23px;display:flex;align-items:center;justify-content:space-between;gap:15px;pointer-events:none}.stage-title{color:#607881;font-size:10px;font-weight:650;letter-spacing:1.4px}.stage-badge{color:#385967;background:#f9fbf4e8;border:1px solid #ccd8d0;border-radius:20px;font-size:10px;padding:4px 11px}.views{position:absolute;top:60px;right:20px;display:grid;grid-template-columns:repeat(2,1fr);gap:4px;width:122px}.views button{border:1px solid transparent;border-radius:6px;background:#f9fbf4c9;color:#6d7e87;font-size:10px;padding:7px 8px}.views button[aria-pressed=true]{border-color:#91adab;background:#fffdf6;color:#315769}.views button:hover{background:#fffdf6}.views .full{grid-column:span 2}.label-layer{position:absolute;inset:0;pointer-events:none;overflow:hidden}.building-label{position:absolute;font-size:10px;font-weight:600;padding:3px 8px;background:#fffcf0ed;border:1px solid #bccdcc;border-radius:5px;white-space:nowrap;color:#3c5965;transform:translate(-50%,-50%);box-shadow:0 3px 10px #2344450b}.stage-bottom{position:absolute;left:21px;right:21px;bottom:18px;display:flex;justify-content:space-between;align-items:flex-end;gap:15px;pointer-events:none}.scene-caption{font-size:10px;color:#edf4ef;max-width:330px;padding:5px 10px;background:#2f4b5b94;border-radius:6px}.stage-action{pointer-events:auto;display:flex;gap:5px;align-items:center}.stage-action button{font-size:10px;padding:7px 11px;background:#fafcf4de;color:#426271;border:1px solid #c1d2ca;border-radius:6px}.stage-action button[aria-pressed=true]{background:#345569;color:#fff}.notice{position:absolute;left:15%;right:15%;top:38%;padding:20px;background:#fff7ed;border-radius:10px;color:#8e4d3d;text-align:center;font-size:12px}.selected{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:25px;align-items:center;border-bottom:1px solid var(--line);padding:19px 2px 22px}.selected h2{font-size:23px;letter-spacing:-.6px;margin:0 0 4px}.selected p{font-size:12px;color:var(--muted);margin:0;line-height:1.8}.selected-meta{display:flex;gap:19px;white-space:nowrap}.selected-meta span{font-size:10px;color:var(--muted)}.selected-meta strong{display:block;font-size:16px;color:#456171;font-weight:600}.catalog{max-width:1440px;margin:auto;padding:25px 32px 30px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:11px}.building-card{position:relative;text-align:left;border:1px solid #d3d8ce;border-radius:10px;background:#fbfaf2;padding:16px 17px;min-width:0;transition:background .15s}.building-card:hover{background:#fffdf7;border-color:#90b0ad}.building-card[aria-pressed=true]{border-color:#6c9b9f;background:#e8eeE7}.card-top{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px}.card-num{color:#91a2a3;font-size:10px;font-variant-numeric:tabular-nums}.swatches{display:flex;gap:3px}.swatches i{width:10px;height:10px;display:block;border:1px solid #19353913;border-radius:3px}.building-card h3{font-size:13px;font-weight:650;letter-spacing:-.1px;margin:0 0 4px}.building-card p{font-size:10px;color:#7c858b;line-height:1.7;margin:0}.card-size{color:#789297;font-size:9px;display:block;margin-top:9px}.demo{max-width:1440px;margin:auto;padding:0 32px 28px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:30px}.demo h2{font-size:17px;margin:0 0 6px;letter-spacing:-.3px}.demo p{font-size:11px;color:var(--muted);line-height:1.9;margin:0}.demonstration{padding:19px 22px;border:1px solid #d3d8ce;border-radius:12px;background:#ebece1}.demo-buttons{display:flex;flex-wrap:wrap;gap:6px;margin:13px 0 8px}.demo-buttons button{border:1px solid #bccbc4;background:#fdfbf3;color:#3d5b6a;border-radius:7px;padding:8px 12px;font-size:11px}.demo-buttons .restore{background:#38576b;border-color:#38576b;color:#fff}.demo-status{min-height:20px;color:#6c7f86!important}.street-copy{padding:19px 5px}.street-copy a{display:inline-block;margin-top:13px;color:#3f7189;font-size:11px;border-bottom:1px solid #a4babe}.inspection{max-width:1440px;margin:auto;padding:0 32px 24px}.inspection details{border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:13px 2px;font-size:10px;color:#71808b}.inspection summary{cursor:pointer;font-size:11px;color:#5f7884}.stats{display:flex;gap:30px;flex-wrap:wrap;margin-top:12px;font-variant-numeric:tabular-nums}.stats strong{font-size:14px;color:#3f6375;font-weight:600;display:block}.inspection p{font-size:10px;color:#7b868c;line-height:1.8;margin:10px 0 0}.footer{max-width:1440px;margin:auto;padding:5px 32px 22px;display:flex;gap:16px;justify-content:space-between;color:#829094;font-size:9px;letter-spacing:.2px}
+@media(max-width:950px){.intro-mark{gap:20px}.catalog{grid-template-columns:repeat(4,minmax(0,1fr))}.building-card{padding:13px}.stage{height:555px}.selected{gap:15px}.selected-meta{gap:12px}.demo{gap:20px}.scene-caption{max-width:240px}}
+@media(max-width:720px){.header{padding:16px 18px}.brand{font-size:9px;letter-spacing:1.1px}.nav{gap:14px;font-size:10px}.intro{padding:23px 20px 19px;align-items:flex-start;display:block}.intro h1{font-size:31px;letter-spacing:-1.3px}.intro p:last-child{font-size:11px;margin-top:8px}.intro-mark{display:none}.stage-section{padding:0 14px}.stage-toolbar{gap:10px;margin-bottom:10px}.mode-tabs{width:100%;justify-content:space-between}.mode-tabs button{font-size:11px;padding:8px 10px;flex:1}.stage-context{width:100%;justify-content:space-between;gap:8px}.stage{height:510px;border-radius:12px}.stage-top{top:16px;left:16px;right:16px;gap:5px}.stage-title{font-size:8px;letter-spacing:1px}.stage-badge{font-size:9px;padding:4px 9px}.views{top:53px;right:13px;width:112px}.views button{padding:6px;font-size:9px}.building-label{font-size:8px;padding:2px 5px}.stage-bottom{left:14px;right:14px;bottom:15px;align-items:center;flex-direction:column;gap:7px}.scene-caption{font-size:9px;text-align:center;max-width:none}.stage-action button{font-size:9px;padding:6px 10px}.selected{display:block;padding:16px 5px 17px}.selected h2{font-size:21px}.selected p{font-size:11px}.selected-meta{margin-top:10px;gap:20px}.selected-meta strong{font-size:14px}.selected-meta span{font-size:9px}.catalog{padding:20px 14px 22px;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.building-card{padding:13px 12px}.building-card h3{font-size:12px}.building-card p{font-size:9px}.card-size{font-size:8px}.swatches i{width:9px;height:9px}.demo{padding:0 14px 22px;display:block}.demonstration{padding:17px}.demo h2{font-size:16px}.street-copy{padding:21px 4px 0}.demo p{font-size:10px}.demo-buttons button{font-size:10px;padding:8px 10px}.inspection{padding:0 18px 20px}.stats{gap:20px}.footer{padding:0 18px 22px;font-size:8px;display:block}.footer span{display:block;margin-top:4px}}
+@media(max-width:350px){.nav{gap:9px}.stage{height:480px}.views{width:105px}.intro h1{font-size:29px}.context-label{font-size:10px}.palettes button{padding:6px 7px;font-size:9px}.seed-control input{width:71px}.seed-control{font-size:10px}.catalog{gap:7px}.building-card{padding:11px 10px}.card-top{gap:4px}.selected-meta{gap:14px}.stage-badge{max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}}
+@media(prefers-reduced-motion:reduce){.building-card{transition:none}}
+</style>
+<script src="vendor/three.min.js"></script>
+<script src="city-visual.js"></script>
+</head>
+<body>
+<header class="header"><a class="brand" href="kaiju-destroyer.html">KAIJU DESTROYER</a><nav class="nav" aria-label="页面导航"><a href="hero-preview.html">菊花侠</a><a href="kaiju-destroyer.html">进入城市 ↗</a></nav></header>
+<main>
+  <section class="intro"><div><p class="eyebrow">CITY COLLECTION / 08</p><h1>让每一条街，都有个性。</h1><p>彩色公寓、爆米花影院、糖果双塔。从轮廓到招牌，八款卡通建筑组成一座能看懂、能探索、也能逐格摧毁的商业城。</p></div><div class="intro-mark"><div><strong>08</strong><span>建筑款式</span></div><div><strong>03</strong><span>配色明度</span></div><div><strong>72²</strong><span>正式城市</span></div></div></section>
+  <section class="stage-section" aria-labelledby="scene-title">
+    <div class="stage-toolbar"><div class="mode-tabs" aria-label="展示模式"><button data-mode="overview" aria-pressed="true">八款总览</button><button data-mode="single" aria-pressed="false">单栋展示</button><button data-mode="street" aria-pressed="false">固定街区</button></div><div class="stage-context"><span class="context-label" id="context-label">整栋统一配色</span><div class="palettes" aria-label="配色明度"><button data-palette="0" aria-pressed="false">柔和 92%</button><button data-palette="1" aria-pressed="true">原色 100%</button><button data-palette="2" aria-pressed="false">明亮 108%</button></div><form class="seed-control" id="seed-form"><label for="seed">街区种子</label><input id="seed" inputmode="numeric" value="4399" maxlength="10" aria-label="街区随机种子"><button type="submit">生成</button></form></div></div>
+    <div class="stage" id="stage"><canvas id="city-canvas" tabindex="0" aria-label="建筑三维展示。拖动旋转，滚轮缩放；方向键切换角度，加减键缩放。"></canvas><div class="label-layer" id="labels" aria-hidden="true"></div><div class="stage-top"><span class="stage-title" id="scene-title">ARCHITECTURE / COLLECTION</span><span class="stage-badge" id="scene-badge">八款总览 · 8 栋</span></div><div class="views" aria-label="建筑视角"><button data-view="front" aria-pressed="false">正面</button><button data-view="back" aria-pressed="false">背面</button><button data-view="left" aria-pressed="false">左侧</button><button data-view="right" aria-pressed="false">右侧</button><button data-view="top" aria-pressed="false">俯视</button><button data-view="angle" aria-pressed="true">斜视</button><button class="full" id="reset-view">重置视角</button></div><div class="stage-bottom"><span class="scene-caption" id="scene-caption">点击下方建筑，查看独立造型 · 拖动旋转 · 滚轮缩放</span><div class="stage-action"><button id="rotate" aria-pressed="false">自动旋转</button><button id="labels-toggle" aria-pressed="true">建筑名称</button></div></div></div>
+    <div class="selected"><div><h2 id="selection-title">八款，各有一眼记住的轮廓。</h2><p id="selection-description">退台、双塔、转角、低层长条——让城市从一排相同的方盒子，变成有层次的街景。</p></div><div class="selected-meta"><span>占地<strong id="selection-size">按栋生成</strong></span><span>高度<strong id="selection-height">2–5 层</strong></span><span>立面<strong id="selection-detail">窗 · 入口 · 招牌</strong></span></div></div>
+  </section>
+  <section class="catalog" id="catalog" aria-label="八款建筑选择"></section>
+  <section class="demo"><div class="demonstration"><h2>完整外墙，经得起拆开看。</h2><p>选择一栋建筑，拆除一个角落或内部格子。剩余楼体继续四面封闭，每个格子从地面倒塌。</p><div class="demo-buttons"><button id="break-corner">拆除外角</button><button id="break-inner">拆除内部格</button><button class="restore" id="restore">复原建筑</button></div><p class="demo-status" id="demo-status" role="status" aria-live="polite">拆除按钮会打开当前所选建筑的单栋展示。</p></div><div class="street-copy"><h2>同一座城，走进去看。</h2><p>商业建筑集中在中心周边，公寓、酒店和仓库分布在外围。L 形广场能通行；退台和双塔采用真实高度。出生区留空，平坦屋顶留给巨型 Boss。</p><a href="kaiju-destroyer.html">进入正式游戏，探索新街区 ↗</a></div></section>
+  <section class="inspection"><details id="inspection"><summary>查看场景与资源统计</summary><div class="stats"><span>当前建筑格<strong id="stat-cells">—</strong></span><span>本帧绘制<strong id="stat-calls">—</strong></span><span>本帧三角面<strong id="stat-triangles">—</strong></span><span>共享几何模板<strong id="stat-cache">—</strong></span></div><p>展示页调用正式 CityVisual 模块。建筑格合并为一个 Mesh，立面使用本地 Canvas 图集；拆除不会释放共享模板。此处是场景统计，性能与玩法回归记录在验收文件中。</p></details></section>
+</main>
+<footer class="footer"><span>八款原创建筑 · 本地可玩 · 虚构商号</span><span>鼠标 / 触控旋转 · 支持键盘操作 · 320 / 390 宽度适配</span></footer>
+<script>
+(() => {
+  'use strict';
+  const byId = id => document.getElementById(id);
+  const stage = byId('stage'), canvas = byId('city-canvas');
+  const names = ['彩盒公寓','阶梯写字楼','转角百货','爆米花影院','像素电玩中心','糖果双塔酒店','钟塔商馆','积木仓库'];
+  const descriptions = ['错位阳台和彩色窗框，把每一户都装进一只彩盒。','退台裙房托起玻璃塔楼，竖向立柱让轮廓更挺拔。','L 形楼体拥抱小广场，转角雨棚和金黄招牌迎向街道。','爆米花墙徽、红白门头，街角的小影院自带欢乐气氛。','像素阶梯与青粉灯带，让楼体像一块立体游戏画面。','两座条纹糖果塔站在裙房两端，中间留出深深的凹口。','层叠檐口和四面钟盘，为商业街留下一座共同的地标。','低矮长条、宽卷帘门和锯齿檐口，组成可靠的街区配角。'];
+  const features = ['错位阳台','玻璃幕墙','转角雨棚','爆米花墙徽','像素灯带','条纹双塔','四面钟盘','锯齿女儿墙'];
+  let catalog, renderer;
+  try {
+    if (!window.THREE || typeof CityVisual === 'undefined' || !Array.isArray(CityVisual.catalog)) throw new Error('建筑模块尚未加载');
+    catalog = CityVisual.catalog;
+    renderer = new THREE.WebGLRenderer({canvas,antialias:true});
+  } catch (error) {
+    const notice = document.createElement('p');notice.className='notice';notice.textContent='三维建筑未能加载。请确认本地脚本可访问，并开启浏览器 WebGL 硬件加速。';stage.appendChild(notice);return;
+  }
+  renderer.setPixelRatio(Math.min(devicePixelRatio || 1,2));
+  renderer.outputColorSpace=THREE.SRGBColorSpace;
+  renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.05;
+  renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+  const scene=new THREE.Scene();scene.background=new THREE.Color(0xdce5e4);
+  scene.add(new THREE.HemisphereLight(0xe0efff,0x9f927f,2.2));
+  const sun=new THREE.DirectionalLight(0xffeed8,2.8);sun.position.set(30,55,15);sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);sun.shadow.normalBias=.025;sun.shadow.camera.left=sun.shadow.camera.bottom=-48;sun.shadow.camera.right=sun.shadow.camera.top=48;sun.shadow.camera.far=150;scene.add(sun,sun.target);
+  const camera=new THREE.PerspectiveCamera(38,1,.1,300);
+  const structures=new THREE.Group(), effects=new THREE.Group();scene.add(structures,effects);
+  const meshes=new Map(), labels=[];
+  const unit=2.2, reduced=matchMedia('(prefers-reduced-motion: reduce)');
+  let mode='overview', selected=0, palette=1, seed='4399', mapSize=44, map=null, cellMap=null, buildings=[], ground=null;
+  let target=new THREE.Vector3(), radius=20, distanceScale=1, yaw=Math.PI+.65, pitch=.62, rotating=false, showLabels=true;
+  let pointer=null, previousX=0, previousY=0, collapse=null, pulse=null, frameId=0, previous=null, alive=true;
+  const clamp=(n,l,h)=>Math.max(l,Math.min(h,n));
+  function seeded(value){let state=2166136261;for(const c of String(value)) state=Math.imul(state^c.charCodeAt(0),16777619);return ()=>{state+=0x6D2B79F5;let t=state;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return ((t^t>>>14)>>>0)/4294967296;};}
+  function clearPulse(){if(!pulse)return;effects.remove(pulse.mesh);pulse.mesh.geometry.dispose();pulse.mesh.material.dispose();pulse=null;}
+  function clearScene(){
+    if(collapse){CityVisual.disposeCell(collapse.mesh);collapse=null;}
+    clearPulse();[...meshes.values()].forEach(CityVisual.disposeCell);meshes.clear();
+    if(ground){CityVisual.disposeGround(ground);ground=null;}
+    labels.forEach(l=>l.node.remove());labels.length=0;
+  }
+  function appendMesh(ci,cell){
+    const b=buildings.find(item=>item.id===cell.buildingId);if(!b)return;
+    const mesh=CityVisual.createCell({ci,x:cell.x,y:cell.y,floors:cell.floors,colorId:b.typeId,map,mapSize,buildUnit:unit,building:b,cell,cellMap});structures.add(mesh);meshes.set(ci,mesh);
+  }
+  function refreshGround(){if(ground)CityVisual.disposeGround(ground);ground=CityVisual.createGround({map,mapSize});scene.add(ground);}
+  function addLabel(b){
+    const node=document.createElement('span');node.className='building-label';node.textContent=b.name||names[b.typeId];byId('labels').appendChild(node);
+    const maxFloor=Math.max(...b.cells.map(c=>c.floors));
+    labels.push({node,point:new THREE.Vector3(b.x+b.width/2,maxFloor*unit+.6,b.y+b.depth/2)});
+  }
+  function putBuildings(records,size){
+    mapSize=size;map=new Uint8Array(size*size);cellMap=Array(size*size).fill(null);buildings=records;
+    for(const b of records)for(const item of b.cells){const ci=item.y*size+item.x;const c={...item,buildingId:b.id};cellMap[ci]=c;map[ci]=1;}
+  }
+  function fit(){
+    const box=new THREE.Box3().setFromObject(structures);if(box.isEmpty())return;
+    const size=box.getSize(new THREE.Vector3());target.copy(box.getCenter(new THREE.Vector3()));target.y=Math.min(target.y,4.5);
+    radius=Math.max(size.x,size.z,size.y)*.68+2.6;
+    sun.target.position.copy(target);sun.position.set(target.x-24,55,target.z-23);sun.target.updateMatrixWorld();
+  }
+  function buildScene(reset=true){
+    clearScene();
+    if(mode==='single') putBuildings([CityVisual.createBuilding({id:0,typeId:catalog[selected].id ?? selected,x:13,y:13,orientation:0,paletteId:palette})],32);
+    else if(mode==='overview') putBuildings(catalog.map((c,i)=>CityVisual.createBuilding({id:i,typeId:c.id ?? i,x:3+(i%4)*10,y:3+Math.floor(i/4)*13,orientation:0,paletteId:palette})),44);
+    else{
+      const layout=CityVisual.generateLayout({mapSize:72,blockStep:11,random:seeded(seed),spawnRect:{minX:31,maxX:41,minY:31,maxY:41}});putBuildings(layout.buildings,72);
+    }
+    cellMap.forEach((cell,ci)=>{if(cell)appendMesh(ci,cell);});refreshGround();buildings.forEach(addLabel);fit();
+    if(reset){yaw=Math.PI+.65;pitch=.62;distanceScale=1;setViewButtons('angle');}
+    updateUI();
+  }
+  function updateUI(){
+    document.querySelectorAll('[data-mode]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.mode===mode)));
+    document.querySelectorAll('[data-palette]').forEach(b=>{b.setAttribute('aria-pressed',String(+b.dataset.palette===palette));b.disabled=mode==='street';});
+    document.querySelectorAll('.building-card').forEach((b,i)=>b.setAttribute('aria-pressed',String(mode==='single'&&i===selected)));
+    byId('seed-form').classList.toggle('visible',mode==='street');byId('context-label').textContent=mode==='street'?'同一种子，同一街区':'整栋统一配色';
+    byId('scene-title').textContent=mode==='single'?'ARCHITECTURE / STUDY':mode==='street'?'CITY BLOCK / '+seed:'ARCHITECTURE / COLLECTION';
+    byId('scene-badge').textContent=mode==='single'?names[selected]+' · '+meshes.size+' 格':mode==='street'?'种子 '+seed+' · '+buildings.length+' 栋':'八款总览 · 8 栋';
+    byId('scene-caption').textContent=mode==='single'?'拖动查看四面 · 点击拆除按钮检查墙体':mode==='street'?'固定种子街区 · 拖动旋转 · 滚轮拉近':'点击下方建筑，查看独立造型 · 拖动旋转 · 滚轮缩放';
+    byId('rotate').disabled=mode!=='single';if(mode!=='single'){rotating=false;byId('rotate').setAttribute('aria-pressed','false');byId('rotate').textContent='自动旋转';}
+    const c=catalog[selected], b=buildings[0];
+    byId('selection-title').textContent=mode==='single'?names[selected]:mode==='street'?'一套建筑，一座完整商业城。':'八款，各有一眼记住的轮廓。';
+    byId('selection-description').textContent=mode==='single'?(c.description||descriptions[selected]):mode==='street'?'中心是办公、百货、影院和电玩，外围渐次分布公寓、酒店与仓库；出生广场保持开阔。':'退台、双塔、转角、低层长条——让城市从一排相同的方盒子，变成有层次的街景。';
+    byId('selection-size').textContent=mode==='single'?b.width+'×'+b.depth+' 格':mode==='street'?'72×72 格':'按栋生成';
+    const minFloors=mode==='single'?Math.min(...b.cells.map(c=>c.floors)):2,maxFloors=mode==='single'?Math.max(...b.cells.map(c=>c.floors)):5;byId('selection-height').textContent=(minFloors===maxFloors?String(minFloors):minFloors+'–'+maxFloors)+' 层';
+    byId('selection-detail').textContent=mode==='single'?features[selected]:'窗 · 入口 · 招牌';
+    byId('break-corner').disabled=Boolean(collapse);byId('break-inner').disabled=Boolean(collapse);byId('restore').disabled=Boolean(collapse);
+  }
+  function setViewButtons(name){document.querySelectorAll('[data-view]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.view===name)));}
+  function setView(name){
+    yaw=name==='front'?Math.PI:name==='back'?0:name==='left'?-Math.PI/2:name==='right'?Math.PI/2:Math.PI+.65;
+    pitch=name==='top'?1.565:name==='angle'?.62:.18;rotating=false;byId('rotate').setAttribute('aria-pressed','false');byId('rotate').textContent='自动旋转';setViewButtons(name);
+  }
+  function activeSingle(){if(mode!=='single'){mode='single';buildScene(true);}rotating=false;byId('rotate').setAttribute('aria-pressed','false');byId('rotate').textContent='自动旋转';}
+  function breakCell(inner){
+    if(collapse)return;activeSingle();const b=buildings[0], cells=b.cells.filter(c=>map[c.y*mapSize+c.x]===1);if(!cells.length){byId('demo-status').textContent='建筑已拆空，请点击复原建筑。';return;}
+    const occupied=(x,y)=>x>=0&&y>=0&&x<mapSize&&y<mapSize&&map[y*mapSize+x]===1;
+    const neighbors=c=>[[0,-1],[1,0],[0,1],[-1,0]].filter(([dx,dy])=>occupied(c.x+dx,c.y+dy)).length;
+    let candidates=inner?cells.filter(c=>neighbors(c)===4):cells.filter(c=>neighbors(c)<=2);
+    if(!candidates.length)candidates=cells;
+    candidates.sort((a,c)=>inner?Math.hypot(a.x+.5-(b.x+b.width/2),a.y+.5-(b.y+b.depth/2))-Math.hypot(c.x+.5-(b.x+b.width/2),c.y+.5-(b.y+b.depth/2)):a.y-c.y||a.x-c.x);
+    const cell=candidates[0],ci=cell.y*mapSize+cell.x,mesh=meshes.get(ci);if(!mesh)return;
+    map[ci]=0;cellMap[ci]=null;meshes.delete(ci);collapse={mesh,time:0,ci};
+    // 重新使用正式构造器，让退台与拆除边界采用更新后的建筑身份、高度和邻居。
+    for(const [index,old] of meshes){CityVisual.disposeCell(old);appendMesh(index,cellMap[index]);}
+    const ring=new THREE.Mesh(new THREE.RingGeometry(.32,.48,32),new THREE.MeshBasicMaterial({color:0xe5b75a,transparent:true,opacity:.55,side:THREE.DoubleSide}));ring.rotation.x=-Math.PI/2;ring.position.set(cell.x+.5,.08,cell.y+.5);effects.add(ring);clearPulse();pulse={mesh:ring,time:0};
+    byId('demo-status').textContent=(inner?'内部格':'外角')+'正在落地倒塌；剩余外墙保持封闭。';updateUI();
+  }
+  const cardDescriptions=['4×6 · 中段三层，两端四层','6×6 · 裙房与五层玻璃塔','L 形 · 内侧可通行广场','6×4 · 两层红白影院','4×4 · 二至四层像素阶梯','6×4 · 五层窄塔与凹口','5×5 · 中央钟塔地标','6×4 · 两层低矮长条'];
+  catalog.forEach((c,i)=>{
+    const button=document.createElement('button');button.className='building-card';button.type='button';button.setAttribute('aria-pressed','false');button.setAttribute('aria-label','查看'+names[i]);
+    const top=document.createElement('span');top.className='card-top';const number=document.createElement('span');number.className='card-num';number.textContent=String(i+1).padStart(2,'0');top.appendChild(number);
+    const swatches=document.createElement('span');swatches.className='swatches';swatches.setAttribute('aria-hidden','true');(c.colors||[]).slice(0,3).forEach(color=>{const swatch=document.createElement('i');swatch.style.background=color;swatches.appendChild(swatch);});top.appendChild(swatches);
+    const h=document.createElement('h3');h.textContent=names[i];const p=document.createElement('p');p.textContent=descriptions[i];const size=document.createElement('span');size.className='card-size';size.textContent=cardDescriptions[i];button.append(top,h,p,size);button.addEventListener('click',()=>{selected=i;mode='single';byId('demo-status').textContent='可以拆除外角或内部格，检查剩余墙面。';buildScene(true);stage.scrollIntoView({block:'nearest',behavior:'auto'});});byId('catalog').appendChild(button);
+  });
+  document.querySelectorAll('[data-mode]').forEach(b=>b.addEventListener('click',()=>{mode=b.dataset.mode;byId('demo-status').textContent='拆除按钮会打开当前所选建筑的单栋展示。';buildScene(true);}));
+  document.querySelectorAll('[data-palette]').forEach(b=>b.addEventListener('click',()=>{palette=+b.dataset.palette;buildScene(false);byId('demo-status').textContent='当前建筑使用'+[92,100,108][palette]+'% 明度。';}));
+  document.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>setView(b.dataset.view)));
+  byId('reset-view').addEventListener('click',()=>{distanceScale=1;setView('angle');});
+  byId('rotate').addEventListener('click',()=>{rotating=!rotating;byId('rotate').setAttribute('aria-pressed',String(rotating));byId('rotate').textContent=rotating?'停止旋转':'自动旋转';if(rotating)setViewButtons('');});
+  byId('labels-toggle').addEventListener('click',()=>{showLabels=!showLabels;byId('labels-toggle').setAttribute('aria-pressed',String(showLabels));});
+  byId('seed-form').addEventListener('submit',event=>{event.preventDefault();seed=byId('seed').value.trim()||'4399';byId('seed').value=seed;buildScene(true);});
+  byId('break-corner').addEventListener('click',()=>breakCell(false));byId('break-inner').addEventListener('click',()=>breakCell(true));
+  byId('restore').addEventListener('click',()=>{activeSingle();buildScene(false);byId('demo-status').textContent='建筑已复原，全部格子重新完整显示。';});
+  canvas.addEventListener('pointerdown',event=>{if(pointer!==null)return;pointer=event.pointerId;previousX=event.clientX;previousY=event.clientY;canvas.setPointerCapture(pointer);rotating=false;byId('rotate').setAttribute('aria-pressed','false');byId('rotate').textContent='自动旋转';});
+  canvas.addEventListener('pointermove',event=>{if(event.pointerId!==pointer)return;yaw-=(event.clientX-previousX)*.008;pitch=clamp(pitch+(event.clientY-previousY)*.005,.08,1.565);previousX=event.clientX;previousY=event.clientY;setViewButtons('');});
+  const release=event=>{if(event.pointerId===pointer)pointer=null;};canvas.addEventListener('pointerup',release);canvas.addEventListener('pointercancel',release);canvas.addEventListener('lostpointercapture',release);
+  canvas.addEventListener('wheel',event=>{distanceScale=clamp(distanceScale+event.deltaY*.0014,.34,2);event.preventDefault();},{passive:false});
+  canvas.addEventListener('keydown',event=>{if(event.key==='ArrowLeft')yaw-=.15;else if(event.key==='ArrowRight')yaw+=.15;else if(event.key==='ArrowUp')pitch=clamp(pitch+.08,.08,1.565);else if(event.key==='ArrowDown')pitch=clamp(pitch-.08,.08,1.565);else if(event.key==='+'||event.key==='=')distanceScale=clamp(distanceScale-.08,.34,2);else if(event.key==='-')distanceScale=clamp(distanceScale+.08,.34,2);else return;event.preventDefault();setViewButtons('');});
+  function resize(){renderer.setSize(stage.clientWidth,stage.clientHeight,false);camera.aspect=stage.clientWidth/Math.max(1,stage.clientHeight);camera.updateProjectionMatrix();}
+  const resizeObserver=new ResizeObserver(resize);resizeObserver.observe(stage);resize();buildScene(true);
+  function render(now){
+    if(!alive)return;const delta=previous===null?0:Math.min(.05,(now-previous)/1000);previous=now;
+    if(!document.hidden){
+      if(rotating&&!reduced.matches)yaw+=delta*.23;
+      if(collapse){collapse.time+=delta;const t=clamp(collapse.time/.7,0,1);collapse.mesh.scale.y=Math.max(.001,1-t*t);if(t===1){CityVisual.disposeCell(collapse.mesh);collapse=null;refreshGround();byId('demo-status').textContent='拆除完成：'+meshes.size+' 格仍在场景中，侧墙完整封闭。';updateUI();}}
+      if(pulse){pulse.time+=delta;const t=clamp(pulse.time/1,0,1);pulse.mesh.scale.setScalar(1+t*2.8);pulse.mesh.material.opacity=.55*(1-t);if(t===1)clearPulse();}
+    }
+    const verticalFov=THREE.MathUtils.degToRad(camera.fov),horizontalFov=2*Math.atan(Math.tan(verticalFov/2)*camera.aspect);
+    const fitDistance=radius/Math.sin(Math.min(verticalFov,horizontalFov)/2);
+    const distance=fitDistance*distanceScale;
+    camera.position.set(target.x+Math.sin(yaw)*Math.cos(pitch)*distance,target.y+Math.sin(pitch)*distance,target.z+Math.cos(yaw)*Math.cos(pitch)*distance);camera.lookAt(target);camera.updateMatrixWorld(true);
+    for(const label of labels){const point=label.point.clone().project(camera), visible=showLabels&&point.z>-1&&point.z<1&&Math.abs(point.x)<.92&&Math.abs(point.y)<.88;label.node.style.display=visible?'block':'none';if(visible){label.node.style.left=(point.x*.5+.5)*stage.clientWidth+'px';label.node.style.top=(-point.y*.5+.5)*stage.clientHeight+'px';}}
+    renderer.render(scene,camera);
+    if(frameId++%30===0||byId('inspection').open){byId('stat-cells').textContent=meshes.size.toLocaleString();byId('stat-calls').textContent=renderer.info.render.calls.toLocaleString();byId('stat-triangles').textContent=renderer.info.render.triangles.toLocaleString();byId('stat-cache').textContent=CityVisual.stats().geometries.toLocaleString();}
+    requestAnimationFrame(render);
+  }
+  requestAnimationFrame(render);
+  window.addEventListener('pagehide',()=>{alive=false;resizeObserver.disconnect();clearScene();renderer.dispose();},{once:true});
+})();
+</script>
+</body>
+</html>

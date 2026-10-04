@@ -1,0 +1,119 @@
+$ node tests/gameplay.test.cjs
+Scripts "build/three.js" and "build/three.min.js" are deprecated with r150+, and will be removed with r160. Please use ES Modules or alternatives: https://threejs.org/docs/index.html#manual/en/introduction/Installation
+PASS 火焰只命中有限前方，拒绝背后、超射程和侧面目标
+PASS 近处敌人先挡火，与生成顺序无关
+PASS 每次喷火每栋楼只结算一次，完整近楼挡住后方，身后楼不受伤
+PASS 建筑遮挡身后敌人，心态减益按比例作用于火焰伤害
+PASS 火焰高度取目标距离，远处低楼掠过而高楼可命中
+PASS 火焰射程末端可命中高楼，越过射程即不伤害
+PASS 踩踏只伤地面敌人，打工人和直升机及楼顶老板免疫
+PASS 打工人随机巡逻、不主动攻击、免疫玩家火焰，附近助威人数封顶
+PASS 完整建筑挡住同事助威，建筑倒塌后恢复可见助威
+PASS 敌方流弹会误伤打工人，但同一颗弹只结算一个目标
+PASS 生存得分不制造或延长战斗连击，同事按人数增加窗口
+PASS 老板弹幕覆盖射击距离，伤害随波次成长
+PASS 老板弹幕先离开自己的宽屋顶，再俯冲，沿途其他高楼仍可挡住
+PASS 普通敌人弹道寿命覆盖实际射击距离
+PASS 菊花侠基础数值、波次成长与两只存活上限一致
+PASS 菊花侠仅在8格内无遮挡且冷却结束时蓄气
+PASS 菊花侠锁定射线并按42/18/72帧演出，结束恢复后再冷却90帧
+PASS 菊花侠闭合阶段无背击，恢复时仅背面获得5倍火焰伤害
+PASS 踩踏打断菊花侠蓄气或喷气，保留已离体气团且不刷新恢复窗口
+PASS 菊花侠追击避障不再越过身体转向上限，移动仍可沿墙继续
+PASS 菊花侠屁弹按锁定方向命中且仅扣一次血，减速90帧后恢复移动
+PASS 屁弹行程封顶8格，最后一步先碰撞再消失，完整建筑可挡住
+PASS 第3波首次菊花侠生成失败会重试且成功后不重复
+PASS 第6波起菊花侠进入常规编制，上限后替换普通敌人而不丢失名额
+PASS 菊花侠死亡停止技能且只掉落一次血包，恢复阶段仍遵守建筑挡火
+PASS 菊花侠状态与首次登场标志在重开清除，暂停不推进技能
+PASS 菊花侠练习场复用正式技能，可开关喷火、暂停和重置且不会刷普通波次
+PASS 菊花侠练习结束不污染最高分记录，重新练习仍可进入
+PASS 菊花侠预警、三团云透明度与重开资源清理使用正式渲染路径
+PASS 从高波次普通游戏重开练习场，菊花侠数值使用练习场第1波
+PASS 首次登场未找到位置时常规编制不抢先刷菊花侠，成功后才解锁
+PASS 屁弹单帧斜穿建筑角点或短墙段仍被拦截，高于楼顶时可越过
+PASS 屁弹命中当帧保留90帧减速，随后恰好90个移动模拟帧受影响
+PASS 窄屏练习场首帧及不同姿态同时完整取景双方，缩放和击杀后取景有效
+PASS 斜走不会加速，玩家按体积撞墙并可沿墙滑动
+PASS 近距离火焰在生成当帧更新后仍有可见粒子
+PASS 暂停和静音忽略键盘自动重复，暂停清除全部移动输入
+PASS 重开清除键盘与触屏残留，取消触摸不触发踩踏
+PASS 失去窗口焦点释放输入并自动暂停
+PASS 60Hz与144Hz推进相同模拟时间，长停顿限制补帧，暂停不推进
+PASS 单独重画不推进倒塌或粒子寿命，模拟更新负责清理倒塌状态
+PASS 触屏操作按钮随开始、暂停、静音和踩踏状态同步
+PASS 结束隐藏操作按钮，重开恢复按钮并保留静音偏好
+PASS 正式地图逐格接入八款建筑描述，整栋血量和外形元数据与布局一致
+PASS 正式建筑渲染读取款式与局部格，仍保持一格一个共享模型
+PASS 老板屋顶要求同栋同高的完整可站立3×3区域，旧平顶fixture继续兼容
+PASS 老板弹幕巡航只覆盖自己的建筑，遇到相邻同高楼即开始俯冲
+PASS 逐格破坏只结算一次回血计分，立即封闭Boss落点且倒塌完成清理城市元数据
+PASS 城市重开重新布局且不保留陈旧元数据，菊花侠练习保持完全空城
+49 gameplay checks passed; 0 failed.
+
+Exit code: 0
+
+$ node tests/boss-visual.test.cjs
+Scripts "build/three.js" and "build/three.min.js" are deprecated with r150+, and will be removed with r160. Please use ES Modules or alternatives: https://threejs.org/docs/index.html#manual/en/introduction/Installation
+PASS 共享几何体，独立受击材质，模型边界和顶点有效
+PASS 训话动作改变手臂和口型，相同时间保持相同姿态
+PASS 楼顶生成、弹幕联动与楼塌落地
+PASS 一名 Boss 受击不染红其他 Boss，结束后恢复原色
+PASS 击杀掉落、缩小离场、释放和重新开局
+5 boss visual regression checks passed.
+
+Exit code: 0
+
+$ node tests/city-visual.test.cjs
+Scripts "build/three.js" and "build/three.min.js" are deprecated with r150+, and will be removed with r160. Please use ES Modules or alternatives: https://threejs.org/docs/index.html#manual/en/introduction/Installation
+PASS 900 building cells, 93232 triangles, {"geometries":76,"materials":6,"templateTriangles":9944}
+PASS destruction preserves shared geometry, material and texture; collapse remains grounded
+PASS 1 ground draw call, 26694 triangles, 890 safe road markings; ground resources disposed
+PASS restarting same city reuses all templates without growth
+PASS all four interior facades remain closed and detailed after adjacent destruction
+PASS 64 random city restarts: cache bounded at 122/144 geometry templates, 8/8 materials
+
+Exit code: 0
+
+$ node tests/city-layout.test.cjs
+Scripts "build/three.js" and "build/three.min.js" are deprecated with r150+, and will be removed with r160. Please use ES Modules or alternatives: https://threejs.org/docs/index.html#manual/en/introduction/Installation
+PASS 八款目录保持批准的名称、尺寸和配色，真实高度区分轮廓
+PASS 每栋支持四向旋转和三个固定配色，局部体块与世界格保持一致
+PASS 固定随机种子复现整栋布局，注入随机数不会读取全局Math.random
+PASS 64次城市布局覆盖全部款式、完整出生空地、道路、Boss屋顶与同款连排上限
+PASS 中心商业款与外围居住仓储款按城市区域分布
+PASS 八款模型每格一次绘制、地面倒塌，屋顶饰件高度和闭合侧墙符合碰撞体
+PASS 退台和不同建筑身份形成真实外露面，四向旋转与邻格破坏一致
+INFO 900 typed cells: 103604 / 186464 triangles
+PASS 900格均衡款式场景面数不超过旧城市两倍，地面仍一次绘制
+INFO 64 city restarts: 201 / 3344 shared geometries, 24 / 32 materials
+PASS 三档亮度共用款式图集，拆除和64次随机重开保留共享资源并限制缓存
+9 city layout checks passed; 0 failed.
+
+Exit code: 0
+
+$ node tests/unit-visual.test.cjs
+Scripts "build/three.js" and "build/three.min.js" are deprecated with r150+, and will be removed with r160. Please use ES Modules or alternatives: https://threejs.org/docs/index.html#manual/en/introduction/Installation
+soldier: 16 meshes, 3370 triangles; bounds 0.930 × 2.009 × 0.451
+tank: 9 meshes, 2056 triangles; bounds 1.740 × 1.353 × 2.210
+helicopter: 9 meshes, 1456 triangles; bounds 2.940 × 1.183 × 3.065
+fartHero: 35 meshes, 7186 triangles; bounds 1.204 × 1.800 × 0.826
+PASS 全部模型的顶点有效、绘制调用有界、单位比例稳定
+PASS 同类共享几何但受击材质彼此独立，释放幂等且不释放共享几何
+PASS 行走摆腿、助威抬手、快走与复位是确定姿态
+PASS 直升机双旋翼和英雄披风独立动画，弱点留在背面
+PASS 菊花侠四阶段有明确姿态，喷气与喘气显示开口，关闭后复位
+PASS 后腰公开锚点与真实核心一致，各阶段不移动，短披风不挡背面核心
+PASS 英雄动画不推进状态，重复渲染与回到追击确定复位，实例姿态和受击发光隔离
+PASS 三个工服变体缓存有界且无未知单位静默回退
+8 unit visual regression checks passed.
+
+Exit code: 0
+
+$ node tests/kaiju-visual.test.cjs
+Scripts "build/three.js" and "build/three.min.js" are deprecated with r150+, and will be removed with r160. Please use ES Modules or alternatives: https://threejs.org/docs/index.html#manual/en/introduction/Installation
+PASS kaiju geometry, preserved bounds/mouth, existing leg animation contract, shared geometry and isolated materials
+16 meshes, 24567 triangles
+bounds 3.860 × 6.170 × 8.620
+
+Exit code: 0
